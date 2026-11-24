@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-<title>3D 木琴音樂階梯：純物理無吸力＋加速版</title>
+<title>3D 木琴音樂階梯：轉彎自動傾角＋純物理無吸力版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
 body,html{width:100%;height:100%;overflow:hidden;background:#14110f;color:#f5efe6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",sans-serif}
@@ -124,8 +124,8 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       <input type="range" id="sl-roll" min="-22" max="22" step="0.5" value="0" />
     </div>
     <div class="ctrl-item">
-      <div class="ctrl-head"><span>前後俯仰</span><strong id="val-pitch">6.2°</strong></div>
-      <input type="range" id="sl-pitch" min="1.5" max="15.5" step="0.5" value="6.2" />
+      <div class="ctrl-head"><span>前後俯仰</span><strong id="val-pitch">6.5°</strong></div>
+      <input type="range" id="sl-pitch" min="1.5" max="15.5" step="0.5" value="6.5" />
     </div>
     <div class="ctrl-item full">
       <div class="ctrl-head"><span>前後位移</span><strong id="val-fwd">0.00m</strong></div>
@@ -150,7 +150,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 <div class="draw-overlay" id="draw-overlay">
   <div class="draw-header">
     <h2>✏️ 選擇曲目並畫出木球下階梯的路徑</h2>
-    <p>純物理、無任何吸力，木球速度已加快；調動任一木板時，後續木板會自動跟隨維持基本間距。</p>
+    <p>轉彎處會自動依彎道方向調整左右傾角；純物理、無吸力，調板時後續板子自動跟隨保持間距。</p>
   </div>
   <div class="song-picker" id="song-picker"></div>
   <div class="canvas-wrap">
@@ -167,7 +167,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   <div class="header-bar">
     <div class="title-box">
       <div class="badge">♪</div>
-      <div class="title-text"><h1 id="hud-song-title">生日快樂歌</h1><p id="hud-song-sub">純物理無吸力｜高速滾動</p></div>
+      <div class="title-text"><h1 id="hud-song-title">生日快樂歌</h1><p id="hud-song-sub">轉彎自動傾角｜純物理無吸力</p></div>
     </div>
     <div class="btn-group">
       <button class="btn active" id="btn-sound">🔊 音效</button>
@@ -177,7 +177,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   </div>
   <div class="lyrics-card">
     <div class="lyrics-line" id="lyrics-display">等待生成階梯</div>
-    <div class="note-spec" id="note-spec-display">純物理碰撞滾動無吸力｜點選任一木板可微調位置與傾角</div>
+    <div class="note-spec" id="note-spec-display">轉彎處自動調整左右傾角｜點選任一木板可手動微調</div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 
   function syncSongHeaderUI() {
     document.getElementById('hud-song-title').textContent = songName();
-    document.getElementById('hud-song-sub').textContent = `全曲 ${getCurrentSong().notes.length} 音｜純物理高速滾動`;
+    document.getElementById('hud-song-sub').textContent = `全曲 ${getCurrentSong().notes.length} 音｜轉彎自動傾角`;
   }
 
   const songPickerEl = document.getElementById('song-picker');
@@ -412,7 +412,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     return new THREE.CanvasTexture(c);
   }
 
-  // ---------- 純物理引擎（無任何吸力、無速度鎖定、速度加快） ----------
+  // ---------- 純物理引擎（無任何吸力、轉彎自動傾角） ----------
   const stairsGroup = new THREE.Group();
   scene.add(stairsGroup);
   let stepsData = [], adjusted2DPreview = [], particles = [];
@@ -426,11 +426,11 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   const FIXED_DT = 1 / 240;
   let physicsAccumulator = 0;
 
-  // 加速參數
   const GRAVITY = 24.5;
   const INIT_LAUNCH_SPEED = 2.65;
   const SLOPE_ACC_MULT = 1.65;
   const TILT_ACCEL = 13.0;
+  const MAX_ROLL_DEG = 22.0;
 
   const getForwardFromYaw = yaw => new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
   const getRightFromYaw = yaw => new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw)).normalize();
@@ -440,6 +440,34 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     adjusted2DPreview = stepsData.map(st => ({ x: st.pos.x / SCALE_XZ + .5, y: st.pos.z / SCALE_XZ + .5 }));
   }
 
+  // 計算轉彎處的自動左右傾角（rollRad）
+  // 根據前後相鄰木板前進向量的夾角與左右轉向分量，給予適度彎道傾角
+  function computeTurnAutoRollRad(idx, yaws, pos3D) {
+    const count = yaws.length;
+    if (count < 2) return 0;
+
+    const fwdCur = getForwardFromYaw(yaws[idx]);
+    const rightCur = getRightFromYaw(yaws[idx]);
+
+    const prevYaw = idx > 0 ? yaws[idx - 1] : yaws[idx];
+    const nextYaw = idx < count - 1 ? yaws[idx + 1] : yaws[idx];
+
+    const deltaPrev = Math.atan2(Math.sin(yaws[idx] - prevYaw), Math.cos(yaws[idx] - prevYaw));
+    const deltaNext = Math.atan2(Math.sin(nextYaw - yaws[idx]), Math.cos(nextYaw - yaws[idx]));
+
+    // 合併進彎與出彎的轉向趨勢，並參考下階相對右向偏移
+    let turnFactor = deltaPrev * 0.65 + deltaNext * 0.45;
+    if (idx < count - 1) {
+      const toNext = new THREE.Vector3().subVectors(pos3D[idx + 1], pos3D[idx]).setY(0);
+      const latNext = toNext.dot(rightCur);
+      turnFactor += THREE.MathUtils.clamp(latNext * 0.08, -0.18, 0.18);
+    }
+
+    // 轉向角度越大，左右傾角越大（上限 11°），讓球在彎道上自然滾向轉向內側
+    const autoDeg = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(turnFactor) * 0.42, -11.0, 11.0);
+    return Math.abs(autoDeg) < 0.35 ? 0 : THREE.MathUtils.degToRad(autoDeg);
+  }
+
   function advanceSinglePhysicsStep(state, tiltDeg, onStepTriggered = null) {
     const subDt = FIXED_DT;
     state.vel.y -= GRAVITY * subDt;
@@ -447,7 +475,6 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     const refStep = stepsData[Math.max(0, Math.min(state.nextStep - 1, stepsData.length - 1))];
     state.vel.addScaledVector(refStep.rightDir, Math.sin(THREE.MathUtils.degToRad(tiltDeg)) * TILT_ACCEL * subDt);
 
-    // 極輕微空氣阻力，不加人工磁力或吸力
     state.vel.x *= (1 - .08 * subDt);
     state.vel.z *= (1 - .08 * subDt);
     state.pos.addScaledVector(state.vel, subDt);
@@ -475,7 +502,6 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       }
     }
 
-    // 純板面碰撞（僅當球心已穿過板面頂部 surfY 且處於極小幀間穿透容差 0.12m 內才接觸，無吸力）
     const cand = [];
     if (state.nextStep > 0) cand.push(state.nextStep - 1);
     if (state.nextStep < stepsData.length) cand.push(state.nextStep);
@@ -501,7 +527,6 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
             } else {
               state.vel.y = -state.vel.dot(st.forwardDir) * Math.tan(st.pitchRad) - state.vel.dot(st.rightDir) * Math.tan(st.rollRad);
             }
-            // 純重力沿斜坡分量加速（無橫向速度鎖定或居中煞車）
             state.vel.addScaledVector(st.forwardDir, GRAVITY * Math.sin(st.pitchRad) * SLOPE_ACC_MULT * subDt);
             state.vel.addScaledVector(st.rightDir, GRAVITY * Math.sin(st.rollRad) * SLOPE_ACC_MULT * subDt);
             const k = Math.pow(.72, subDt);
@@ -605,12 +630,20 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     const pos3D = posXZ.map((v, i) => new THREE.Vector3(v.x, startY - i * BASE_STEP_DROP_Y, v.y));
     const defaultPitch = THREE.MathUtils.degToRad(6.5);
 
-    for (let i = 0; i < count; i++) {
-      const item = songNotes[i], meta = NOTES_META[item.note], pos = pos3D[i];
+    const yaws = pos3D.map((pos, i) => {
       const fwd = new THREE.Vector3(0, 0, 1);
       if (i < count - 1) fwd.subVectors(pos3D[i+1], pos).setY(0).normalize();
       else if (i > 0) fwd.subVectors(pos, pos3D[i-1]).setY(0).normalize();
-      const yaw = Math.atan2(fwd.x, fwd.z);
+      return Math.atan2(fwd.x, fwd.z);
+    });
+
+    let turnBoardsCount = 0;
+
+    for (let i = 0; i < count; i++) {
+      const item = songNotes[i], meta = NOTES_META[item.note], pos = pos3D[i];
+      const yaw = yaws[i];
+      const autoRoll = computeTurnAutoRollRad(i, yaws, pos3D);
+      if (Math.abs(autoRoll) > 0.001) turnBoardsCount++;
 
       const holder = new THREE.Group();
       holder.position.copy(pos); holder.rotation.y = yaw;
@@ -618,6 +651,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       tiltGroup.rotation.order = 'YXZ';
       const initPitch = (i === count - 1) ? THREE.MathUtils.degToRad(-1.8) : defaultPitch;
       tiltGroup.rotation.x = initPitch;
+      tiltGroup.rotation.z = autoRoll;
       holder.add(tiltGroup);
 
       const barWidth = meta.barLength, barHeight = meta.barThick;
@@ -652,7 +686,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
         basePos,
         savedPos: basePos.clone(),
         savedPitch: initPitch,
-        savedRoll: 0,
+        savedRoll: autoRoll,
         offsetRight: 0,
         offsetFwd: 0,
         offsetY: 0,
@@ -661,7 +695,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
         rightDir: getRightFromYaw(yaw),
         yaw,
         pitchRad: initPitch,
-        rollRad: 0,
+        rollRad: autoRoll,
         barWidth, barHeight, barDepth, meta, songItem: item,
         holder, tiltGroup, barMesh, triggered: false, bounceOffset: 0
       });
@@ -669,7 +703,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 
     sync2DPreviewFromSteps();
     const extHint = extendedCount > 0 ? `（後段 ${extendedCount} 階自動直線延伸）` : '';
-    showLiveCalibMessage(`✅ 已生成 ${count} 階純物理階梯${extHint}，木球速度已加快`);
+    showLiveCalibMessage(`✅ 已生成 ${count} 階，轉彎處已自動調整 ${turnBoardsCount} 塊板左右傾角${extHint}`);
   }
 
   // ---------- 失敗詢問與手動調整（含後續自動跟隨保持間距） ----------
@@ -838,7 +872,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       } else if (axis === 'height') {
         st.offsetY = THREE.MathUtils.clamp(st.offsetY + delta, -3.5, 3.5);
       } else if (axis === 'roll') {
-        const nextDeg = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(st.rollRad) + delta, -22, 22);
+        const nextDeg = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(st.rollRad) + delta, -MAX_ROLL_DEG, MAX_ROLL_DEG);
         st.rollRad = THREE.MathUtils.degToRad(nextDeg);
       }
       applyStepManualOffsets(st);
@@ -947,7 +981,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     const song = getCurrentSong(), notes = song.notes;
     if (activeIdx < 0) {
       el.innerHTML = `準備演奏《${songName()}》`;
-      specEl.textContent = '純物理碰撞滾動無吸力｜點選任一木板可微調位置與傾角';
+      specEl.textContent = '轉彎處自動調整左右傾角｜點選任一木板可手動微調';
       return;
     }
     const start = Math.max(0, activeIdx - 3), end = Math.min(notes.length, start + 8);
@@ -959,9 +993,11 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     el.innerHTML = html;
     const st = stepsData[activeIdx];
     if (st) {
+      const rDeg = THREE.MathUtils.radToDeg(st.rollRad);
+      const rText = Math.abs(rDeg) < 0.35 ? '0°' : (rDeg > 0 ? `右傾${rDeg.toFixed(1)}°` : `左傾${Math.abs(rDeg).toFixed(1)}°`);
       specEl.textContent = activeIdx === notes.length - 1
         ? `🎉 演奏完成 ${notes.length}/${notes.length} 階！`
-        : `進度 ${activeIdx + 1}/${notes.length} ｜ 音階 ${st.meta.label} (${st.meta.name}) ｜ 音板長 ${st.barWidth.toFixed(2)}m`;
+        : `進度 ${activeIdx + 1}/${notes.length} ｜ ${st.meta.label} (${st.meta.name}) ｜ 傾角 ${rText}`;
     }
   }
 

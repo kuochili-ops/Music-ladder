@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-<title>3D 木琴音樂階梯：無吸力純板面調整版</title>
+<title>3D 木琴音樂階梯：純物理無吸力＋加速版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
 body,html{width:100%;height:100%;overflow:hidden;background:#14110f;color:#f5efe6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",sans-serif}
 #canvas-container{position:fixed;inset:0;z-index:1}
-.draw-overlay{position:fixed;inset:0;z-index:30;background:rgba(18,14,12,.96);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:10px;transition:opacity .25s}
+
+.draw-overlay{position:fixed;inset:0;z-index:35;background:rgba(18,14,12,.96);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:10px;transition:opacity .25s}
 .draw-overlay.hidden{opacity:0;pointer-events:none}
 .draw-header{text-align:center;max-width:360px}
 .draw-header h2{font-size:17px;color:#fbbf24;margin-bottom:4px}
@@ -22,6 +23,7 @@ body,html{width:100%;height:100%;overflow:hidden;background:#14110f;color:#f5efe
 .canvas-hint.hide{display:none}
 .draw-actions{display:flex;gap:10px;width:min(82vw,320px)}
 .draw-actions .btn{flex:1;justify-content:center;padding:11px 8px;font-size:14px}
+
 .top-hud{position:fixed;top:max(env(safe-area-inset-top,0px),10px);left:10px;right:10px;z-index:10;display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .header-bar{display:flex;align-items:center;justify-content:space-between;gap:6px;background:rgba(28,23,20,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,215,160,.22);border-radius:14px;padding:7px 10px;pointer-events:auto}
 .title-box{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
@@ -34,19 +36,44 @@ body,html{width:100%;height:100%;overflow:hidden;background:#14110f;color:#f5efe
 .btn:active{transform:scale(.95)}
 .btn.primary{background:#f59e0b;color:#14110f;border-color:#f59e0b;font-weight:700}
 .btn.active{background:#f59e0b;color:#14110f;border-color:#f59e0b}
+.btn.sky{background:#0284c7;color:#fff;border-color:#38bdf8;font-weight:700}
+
 .lyrics-card{background:rgba(28,23,20,.84);backdrop-filter:blur(10px);border:1px solid rgba(255,215,160,.18);border-radius:14px;padding:8px 12px;text-align:center;pointer-events:auto}
 .lyrics-line{font-size:18px;font-weight:800;letter-spacing:2px;color:#8c7b6b;min-height:26px;display:flex;justify-content:center;align-items:center;gap:5px}
 .lyrics-line span.done{color:#d6c7b2}
 .lyrics-line span.current{color:#fbbf24;transform:scale(1.22);text-shadow:0 0 12px rgba(251,191,36,.65);border-bottom:2px solid #fbbf24;margin:0 3px}
 .note-spec{margin-top:3px;font-size:11px;color:#d9a05b;font-weight:600}
-.fail-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);z-index:25;background:rgba(24,18,15,.96);border:2px solid #f59e0b;border-radius:18px;padding:16px 20px;width:min(88vw,355px);text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.75);opacity:0;pointer-events:none;transition:all .25s}
-.fail-toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.fail-toast h3{color:#fbbf24;font-size:15.5px;margin-bottom:6px}
-.fail-toast p{color:#f5efe6;font-size:13px;line-height:1.5}
-.fail-toast .sub{color:#38bdf8;font-size:12px;margin-top:6px;font-weight:600}
+
+.fail-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.92);z-index:26;background:rgba(24,18,15,.97);border:2px solid #f59e0b;border-radius:18px;padding:16px 18px;width:min(90vw,365px);text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.8);opacity:0;pointer-events:none;transition:all .22s}
+.fail-modal.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+.fail-modal h3{color:#fbbf24;font-size:15.5px;margin-bottom:6px}
+.fail-modal p{color:#f5efe6;font-size:13px;line-height:1.5;margin-bottom:10px}
+.fail-modal .q{color:#7dd3fc;font-size:12.5px;font-weight:700;margin-bottom:12px}
+.fail-modal .modal-btns{display:flex;gap:8px}
+.fail-modal .modal-btns .btn{flex:1;justify-content:center;padding:10px 8px;font-size:13px}
+
+.board-editor{position:fixed;bottom:max(env(safe-area-inset-bottom,0px),12px);left:10px;right:10px;z-index:24;background:rgba(22,18,15,.96);backdrop-filter:blur(14px);border:1.5px solid #38bdf8;border-radius:16px;padding:10px 12px;box-shadow:0 12px 36px rgba(0,0,0,.78);display:none;flex-direction:column;gap:8px}
+.board-editor.show{display:flex}
+.editor-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.editor-title{font-size:12.5px;font-weight:700;color:#7dd3fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.editor-top-right{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px}
+.ctrl-item{display:flex;flex-direction:column;gap:3px}
+.ctrl-item.full{grid-column:1 / -1}
+.ctrl-head{display:flex;justify-content:space-between;font-size:11px;color:#d6c7b2}
+.ctrl-head strong{color:#fbbf24;font-family:monospace}
+.ctrl-item input[type=range]{width:100%;height:7px;border-radius:4px;background:#3a3028;accent-color:#38bdf8;cursor:pointer}
+.nudge-row{display:flex;gap:5px;flex-wrap:wrap}
+.nudge-btn{background:rgba(255,255,255,.09);border:1px solid rgba(255,215,160,.24);color:#f5efe6;border-radius:8px;padding:5px 7px;font-size:11px;font-weight:600;cursor:pointer;flex:1;min-width:62px;text-align:center}
+.nudge-btn:active{transform:scale(.95);background:rgba(56,189,248,.25)}
+.editor-actions{display:flex;gap:6px}
+.editor-actions .btn{flex:1;justify-content:center;padding:8px 6px;font-size:12px}
+
 .live-calib-badge{position:fixed;top:126px;left:50%;transform:translateX(-50%) translateY(-8px);z-index:18;background:rgba(14,116,144,.94);border:1px solid #38bdf8;color:#e0f2fe;border-radius:20px;padding:6px 14px;font-size:11.5px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:all .22s;max-width:92vw;text-align:center}
 .live-calib-badge.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
 .bottom-hud{position:fixed;bottom:max(env(safe-area-inset-bottom,0px),12px);left:10px;right:10px;z-index:10;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.bottom-hud.hidden-for-editor{display:none}
 .tilt-panel{background:rgba(28,23,20,.9);backdrop-filter:blur(12px);border:1px solid rgba(255,215,160,.22);border-radius:14px;padding:8px 12px;pointer-events:auto}
 .tilt-labels{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;margin-bottom:6px;color:#cbbba8}
 .tilt-labels strong{color:#fbbf24}
@@ -62,14 +89,68 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 <body>
 <div id="canvas-container"></div>
 <div class="live-calib-badge" id="live-calib-badge"></div>
-<div class="fail-toast" id="fail-toast">
-  <h3 id="fail-title"></h3><p id="fail-desc"></p><div class="sub" id="fail-fix-info"></div>
+
+<!-- 失敗時詢問是否手動調整 -->
+<div class="fail-modal" id="fail-modal">
+  <h3 id="fail-title"></h3>
+  <p id="fail-desc"></p>
+  <div class="q">要手動調整木板位置／傾角嗎？（調一塊時後續板子會自動跟隨保持間距）</div>
+  <div class="modal-btns">
+    <button class="btn sky" id="btn-fail-manual">🔧 手動調整</button>
+    <button class="btn primary" id="btn-fail-retry">↻ 重新滾球</button>
+  </div>
 </div>
 
+<!-- 點選任一木板的手動調整面板 -->
+<div class="board-editor" id="board-editor">
+  <div class="editor-top">
+    <div class="editor-title" id="editor-title">🎛️ 調整第 1 階木板</div>
+    <div class="editor-top-right">
+      <button class="btn active" id="btn-follow-chain" style="padding:4px 8px;font-size:11px">🔗 後續跟隨：開</button>
+      <button class="btn" id="btn-close-editor" style="padding:4px 8px;font-size:11px">✕</button>
+    </div>
+  </div>
+  <div class="editor-grid">
+    <div class="ctrl-item">
+      <div class="ctrl-head"><span>左右位移</span><strong id="val-right">0.00m</strong></div>
+      <input type="range" id="sl-right" min="-3.5" max="3.5" step="0.05" value="0" />
+    </div>
+    <div class="ctrl-item">
+      <div class="ctrl-head"><span>高低 (Y)</span><strong id="val-height">0.00m</strong></div>
+      <input type="range" id="sl-height" min="-3.5" max="3.5" step="0.05" value="0" />
+    </div>
+    <div class="ctrl-item">
+      <div class="ctrl-head"><span>左右傾角</span><strong id="val-roll">0.0°</strong></div>
+      <input type="range" id="sl-roll" min="-22" max="22" step="0.5" value="0" />
+    </div>
+    <div class="ctrl-item">
+      <div class="ctrl-head"><span>前後俯仰</span><strong id="val-pitch">6.2°</strong></div>
+      <input type="range" id="sl-pitch" min="1.5" max="15.5" step="0.5" value="6.2" />
+    </div>
+    <div class="ctrl-item full">
+      <div class="ctrl-head"><span>前後位移</span><strong id="val-fwd">0.00m</strong></div>
+      <input type="range" id="sl-fwd" min="-2.5" max="2.5" step="0.05" value="0" />
+    </div>
+  </div>
+  <div class="nudge-row">
+    <button class="nudge-btn" data-nudge="right:-0.15">← 左移</button>
+    <button class="nudge-btn" data-nudge="right:0.15">右移 →</button>
+    <button class="nudge-btn" data-nudge="height:0.15">↑ 抬高</button>
+    <button class="nudge-btn" data-nudge="height:-0.15">↓ 壓低</button>
+    <button class="nudge-btn" data-nudge="roll:-1.5">↶ 左傾</button>
+    <button class="nudge-btn" data-nudge="roll:1.5">↷ 右傾</button>
+  </div>
+  <div class="editor-actions">
+    <button class="btn" id="btn-reset-step">還原此板</button>
+    <button class="btn primary" id="btn-play-from-step">▶ 立即滾球測試</button>
+  </div>
+</div>
+
+<!-- 2D 手繪路線面板 -->
 <div class="draw-overlay" id="draw-overlay">
   <div class="draw-header">
     <h2>✏️ 選擇曲目並畫出木球下階梯的路徑</h2>
-    <p>純物理、無任何吸力：只靠調整每塊板的左右傾角、俯仰角與水平／垂直位置，讓球敲到每一塊木板。</p>
+    <p>純物理、無任何吸力，木球速度已加快；調動任一木板時，後續木板會自動跟隨維持基本間距。</p>
   </div>
   <div class="song-picker" id="song-picker"></div>
   <div class="canvas-wrap">
@@ -86,7 +167,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   <div class="header-bar">
     <div class="title-box">
       <div class="badge">♪</div>
-      <div class="title-text"><h1 id="hud-song-title">生日快樂歌</h1><p id="hud-song-sub">無吸力純板面調整</p></div>
+      <div class="title-text"><h1 id="hud-song-title">生日快樂歌</h1><p id="hud-song-sub">純物理無吸力｜高速滾動</p></div>
     </div>
     <div class="btn-group">
       <button class="btn active" id="btn-sound">🔊 音效</button>
@@ -96,11 +177,11 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   </div>
   <div class="lyrics-card">
     <div class="lyrics-line" id="lyrics-display">等待生成階梯</div>
-    <div class="note-spec" id="note-spec-display">音板越長越厚＝低音｜越短越薄＝高音</div>
+    <div class="note-spec" id="note-spec-display">純物理碰撞滾動無吸力｜點選任一木板可微調位置與傾角</div>
   </div>
 </div>
 
-<div class="bottom-hud">
+<div class="bottom-hud" id="bottom-hud">
   <div class="tilt-panel">
     <div class="tilt-labels"><span>← 向左傾斜</span><strong id="tilt-readout">水平平衡 (0°)</strong><span>向右傾斜 →</span></div>
     <div class="slider-wrap"><input type="range" id="tilt-slider" min="-35" max="35" value="0" step="0.5" /></div>
@@ -165,7 +246,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 
   function syncSongHeaderUI() {
     document.getElementById('hud-song-title').textContent = songName();
-    document.getElementById('hud-song-sub').textContent = `全曲 ${getCurrentSong().notes.length} 音｜無吸力純板面調整`;
+    document.getElementById('hud-song-sub').textContent = `全曲 ${getCurrentSong().notes.length} 音｜純物理高速滾動`;
   }
 
   const songPickerEl = document.getElementById('song-picker');
@@ -287,11 +368,10 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: .78, roughness: .25 });
   const railMat = new THREE.MeshStandardMaterial({ color: 0x2a211b, metalness: .3, roughness: .7 });
 
-  function createWoodBarTexture(meta, songItem, stepIdx, adjustNote = '') {
-    const adj = Boolean(adjustNote);
+  function createWoodBarTexture(meta, songItem, stepIdx, isSelected = false) {
     const c = document.createElement('canvas'); c.width = 512; c.height = 256;
     const ctx = c.getContext('2d');
-    const hue = adj ? 200 : Math.round(meta.woodHue * 360);
+    const hue = isSelected ? 200 : Math.round(meta.woodHue * 360);
     const g = ctx.createLinearGradient(0, 0, 512, 0);
     g.addColorStop(0, `hsl(${hue},58%,25%)`); g.addColorStop(.5, `hsl(${hue+4},64%,34%)`); g.addColorStop(1, `hsl(${hue},58%,25%)`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 256);
@@ -312,11 +392,12 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     ctx.fillStyle = '#fef3c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = 'bold 66px sans-serif';
     ctx.fillText(songItem.lyric ? `${meta.label} · ${songItem.lyric}` : `#${stepIdx+1} 音階 ${meta.label}`, 256, 118);
-    ctx.fillStyle = adj ? '#7dd3fc' : '#fcd34d';
+    ctx.fillStyle = isSelected ? '#7dd3fc' : '#fcd34d';
     ctx.font = '600 24px monospace';
-    ctx.fillText(adj ? adjustNote : `${meta.name} | 音板長 ${meta.barLength.toFixed(1)}m`, 256, 184);
-    ctx.strokeStyle = adj ? 'rgba(56,189,248,.85)' : 'rgba(253,224,71,.45)';
-    ctx.lineWidth = 8; ctx.strokeRect(4, 4, 504, 248);
+    ctx.fillText(isSelected ? `調整中 #${stepIdx+1} (${meta.name})` : `${meta.name} | 音板長 ${meta.barLength.toFixed(1)}m`, 256, 184);
+    ctx.strokeStyle = isSelected ? '#38bdf8' : 'rgba(253,224,71,.45)';
+    ctx.lineWidth = isSelected ? 12 : 8;
+    ctx.strokeRect(4, 4, 504, 248);
     const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4; return tex;
   }
 
@@ -331,20 +412,25 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     return new THREE.CanvasTexture(c);
   }
 
-  // ---------- 物理與自動收斂（無任何吸力／導引） ----------
+  // ---------- 純物理引擎（無任何吸力、無速度鎖定、速度加快） ----------
   const stairsGroup = new THREE.Group();
   scene.add(stairsGroup);
   let stepsData = [], adjusted2DPreview = [], particles = [];
-  let isSimulationActive = false, isRecoveringFromFall = false;
+  let isSimulationActive = false;
+  let waitingManualChoice = false;
+  let selectedStepIdx = -1;
+  let followChainEnabled = true;
 
-  const SCALE_XZ = 36.0, STEP_SPACING = 2.48, BASE_STEP_DROP_Y = 1.24, MAX_PATH_DRIFT_XZ = 2.15;
-  const MAX_ROLL_DEG = 22.0;
-  const MAX_ROLL_RAD = THREE.MathUtils.degToRad(MAX_ROLL_DEG);
-  const MIN_PITCH_RAD = THREE.MathUtils.degToRad(1.5);
-  const MAX_PITCH_RAD = THREE.MathUtils.degToRad(15.5);
+  const SCALE_XZ = 36.0, STEP_SPACING = 2.48, BASE_STEP_DROP_Y = 1.24;
   const ballRadius = 0.36;
   const FIXED_DT = 1 / 240;
   let physicsAccumulator = 0;
+
+  // 加速參數
+  const GRAVITY = 24.5;
+  const INIT_LAUNCH_SPEED = 2.65;
+  const SLOPE_ACC_MULT = 1.65;
+  const TILT_ACCEL = 13.0;
 
   const getForwardFromYaw = yaw => new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
   const getRightFromYaw = yaw => new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw)).normalize();
@@ -354,98 +440,16 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     adjusted2DPreview = stepsData.map(st => ({ x: st.pos.x / SCALE_XZ + .5, y: st.pos.z / SCALE_XZ + .5 }));
   }
 
-  function clampPosNearOriginalPath(st, p, maxDrift = MAX_PATH_DRIFT_XZ) {
-    const dx = p.x - st.origPos.x, dz = p.z - st.origPos.z, d = Math.hypot(dx, dz);
-    if (d > maxDrift) { const r = maxDrift / d; p.x = st.origPos.x + dx * r; p.z = st.origPos.z + dz * r; }
-    return p;
-  }
-
-  function getStepCornerSamples(st, overrideRoll = null) {
-    const roll = overrideRoll !== null ? overrideRoll : st.rollRad;
-    const hw = st.barWidth * .5, hd = st.barDepth * .5, pts = [];
-    for (const rx of [-hw, 0, hw]) for (const fz of [-hd, 0, hd]) {
-      const topY = st.pos.y - fz * Math.tan(st.pitchRad) - rx * Math.tan(roll);
-      pts.push({
-        x: st.pos.x + st.rightDir.x * rx + st.forwardDir.x * fz,
-        y: topY,
-        z: st.pos.z + st.rightDir.z * rx + st.forwardDir.z * fz,
-        bottomY: topY - st.barHeight
-      });
-    }
-    return pts;
-  }
-
-  function isPointInsideStepFootprintXZ(px, pz, t, margin = .25) {
-    const dx = px - t.pos.x, dz = pz - t.pos.z;
-    const lr = dx * t.rightDir.x + dz * t.rightDir.z, lf = dx * t.forwardDir.x + dz * t.forwardDir.z;
-    return Math.abs(lr) <= t.barWidth * .5 + margin && Math.abs(lf) <= t.barDepth * .5 + margin;
-  }
-
-  function isRollSafeFromCollision(idx, candRoll) {
-    if (Math.abs(candRoll) > MAX_ROLL_RAD + 1e-4) return false;
-    const st = stepsData[idx], samples = getStepCornerSamples(st, candRoll);
-    if (idx < stepsData.length - 1) {
-      const next = stepsData[idx + 1];
-      const hiY = next.pos.y + (next.barWidth * .5) * Math.sin(Math.abs(next.rollRad));
-      for (const p of samples) if (isPointInsideStepFootprintXZ(p.x, p.z, next, .2) && p.bottomY <= hiY + .22) return false;
-    }
-    if (idx > 0) {
-      const prev = stepsData[idx - 1];
-      const loY = prev.pos.y - prev.barHeight - (prev.barWidth * .5) * Math.sin(Math.abs(prev.rollRad)) - (prev.barDepth * .5) * Math.sin(prev.pitchRad);
-      for (const p of samples) if (isPointInsideStepFootprintXZ(p.x, p.z, prev, .2) && p.y >= loY - .22) return false;
-    }
-    return true;
-  }
-
-  function enforceVerticalClearance(fromIdx = 1) {
-    let pulled = 0;
-    for (let i = Math.max(1, fromIdx); i < stepsData.length; i++) {
-      const cur = stepsData[i], prev = stepsData[i - 1];
-      const turn = Math.acos(THREE.MathUtils.clamp(cur.forwardDir.dot(prev.forwardDir), -1, 1));
-      const minDrop = 1.02 + (turn / Math.PI) * .65;
-      if (cur.pos.y > prev.pos.y - minDrop) { cur.pos.y = prev.pos.y - minDrop; pulled++; }
-
-      for (let j = 0; j < i; j++) {
-        const upper = stepsData[j];
-        const cs = getStepCornerSamples(cur), us = getStepCornerSamples(upper);
-        if (j === i - 1) {
-          let overlap = false;
-          for (const p of cs) if (isPointInsideStepFootprintXZ(p.x, p.z, upper, .3)) overlap = true;
-          for (const p of us) if (isPointInsideStepFootprintXZ(p.x, p.z, cur, .3)) overlap = true;
-          if (overlap) {
-            const upMinBottom = Math.min(...us.map(p => p.bottomY));
-            const curMaxTop = Math.max(...cs.map(p => p.y));
-            if (curMaxTop > upMinBottom - .32) { cur.pos.y -= curMaxTop - (upMinBottom - .32); pulled++; }
-          }
-        } else {
-          const dist = Math.hypot(cur.pos.x - upper.pos.x, cur.pos.z - upper.pos.z);
-          if (dist < (cur.barWidth + upper.barWidth) * .36) {
-            const safe = upper.pos.y - upper.barHeight - upper.meta.tubeLen - .65;
-            if (cur.pos.y > safe) { cur.pos.y = safe; pulled++; }
-          }
-        }
-      }
-      applyStepTransform(cur);
-    }
-    return pulled;
-  }
-
-  function formatRollLabel(r) {
-    const d = THREE.MathUtils.radToDeg(r);
-    if (Math.abs(d) < .4) return '0°';
-    return d > 0 ? `右傾${Math.abs(d).toFixed(1)}°` : `左傾${Math.abs(d).toFixed(1)}°`;
-  }
-
-  // 無吸力物理：只有重力、板面坡度分量、碰撞反彈與輕微滾動阻力
   function advanceSinglePhysicsStep(state, tiltDeg, onStepTriggered = null) {
-    const subDt = FIXED_DT, gravity = 18.0;
-    state.vel.y -= gravity * subDt;
+    const subDt = FIXED_DT;
+    state.vel.y -= GRAVITY * subDt;
 
     const refStep = stepsData[Math.max(0, Math.min(state.nextStep - 1, stepsData.length - 1))];
-    state.vel.addScaledVector(refStep.rightDir, Math.sin(THREE.MathUtils.degToRad(tiltDeg)) * 9.5 * subDt);
+    state.vel.addScaledVector(refStep.rightDir, Math.sin(THREE.MathUtils.degToRad(tiltDeg)) * TILT_ACCEL * subDt);
 
-    state.vel.x *= (1 - .14 * subDt);
-    state.vel.z *= (1 - .14 * subDt);
+    // 極輕微空氣阻力，不加人工磁力或吸力
+    state.vel.x *= (1 - .08 * subDt);
+    state.vel.z *= (1 - .08 * subDt);
     state.pos.addScaledVector(state.vel, subDt);
 
     if (state.nextStep < stepsData.length) {
@@ -453,7 +457,6 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       if (state.pos.y >= t.pos.y + ballRadius - .15) state.lastPassAtTargetY = state.pos.clone();
     }
 
-    // 漏音檢測
     if (state.nextStep + 1 < stepsData.length) {
       for (let k = state.nextStep + 1; k <= Math.min(stepsData.length - 1, state.nextStep + 2); k++) {
         const s = stepsData[k];
@@ -462,13 +465,17 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
         if (Math.abs(lr) <= s.barWidth * .5 && Math.abs(lf) <= s.barDepth * .5) {
           const surfY = s.pos.y - lf * Math.tan(s.pitchRad) - lr * Math.tan(s.rollRad) + ballRadius;
           if (state.pos.y <= surfY && state.pos.y >= surfY - .5 && state.vel.y <= .5) {
-            return { status:'skip', failIdx: state.nextStep, pos: state.lastPassAtTargetY ? state.lastPassAtTargetY.clone() : state.pos.clone() };
+            return {
+              status: 'skip',
+              failIdx: state.nextStep,
+              pos: state.lastPassAtTargetY ? state.lastPassAtTargetY.clone() : state.pos.clone()
+            };
           }
         }
       }
     }
 
-    // 板面接觸
+    // 純板面碰撞（僅當球心已穿過板面頂部 surfY 且處於極小幀間穿透容差 0.12m 內才接觸，無吸力）
     const cand = [];
     if (state.nextStep > 0) cand.push(state.nextStep - 1);
     if (state.nextStep < stepsData.length) cand.push(state.nextStep);
@@ -479,27 +486,27 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       const lr = rel.dot(st.rightDir), lf = rel.dot(st.forwardDir);
       if (Math.abs(lr) <= st.barWidth * .5 && Math.abs(lf) <= st.barDepth * .5) {
         const surfY = st.pos.y - lf * Math.tan(st.pitchRad) - lr * Math.tan(st.rollRad) + ballRadius;
-        if (state.pos.y <= surfY && state.pos.y >= surfY - .52 && state.vel.y <= .5) {
+        if (state.pos.y <= surfY && state.pos.y >= surfY - .12 && state.vel.y <= 0.5) {
           state.pos.y = surfY;
           const isFinal = (i === stepsData.length - 1) && state.triggered[i];
 
           if (isFinal) {
             state.vel.y = 0;
-            state.vel.x *= Math.pow(.05, subDt);
-            state.vel.z *= Math.pow(.05, subDt);
+            state.vel.x *= Math.pow(.08, subDt);
+            state.vel.z *= Math.pow(.08, subDt);
           } else {
             const impact = Math.abs(state.vel.y);
-            if (impact > 1.35) {
-              state.vel.y = Math.min(2.65, impact * .38);
+            if (impact > 1.4) {
+              state.vel.y = Math.min(3.2, impact * .36);
             } else {
               state.vel.y = -state.vel.dot(st.forwardDir) * Math.tan(st.pitchRad) - state.vel.dot(st.rightDir) * Math.tan(st.rollRad);
             }
-            // 只有真實的重力坡度分量
-            state.vel.addScaledVector(st.forwardDir, gravity * Math.sin(st.pitchRad) * subDt);
-            state.vel.addScaledVector(st.rightDir, gravity * Math.sin(st.rollRad) * subDt);
-            // 輕微滾動阻力
-            const k = Math.pow(.55, subDt);
-            state.vel.x *= k; state.vel.z *= k;
+            // 純重力沿斜坡分量加速（無橫向速度鎖定或居中煞車）
+            state.vel.addScaledVector(st.forwardDir, GRAVITY * Math.sin(st.pitchRad) * SLOPE_ACC_MULT * subDt);
+            state.vel.addScaledVector(st.rightDir, GRAVITY * Math.sin(st.rollRad) * SLOPE_ACC_MULT * subDt);
+            const k = Math.pow(.72, subDt);
+            state.vel.x *= k;
+            state.vel.z *= k;
           }
 
           if (!state.triggered[i] && i === state.nextStep) {
@@ -517,167 +524,28 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     if (state.nextStep < stepsData.length) {
       const exp = stepsData[state.nextStep];
       if (state.pos.y < exp.pos.y - 1.45) {
-        return { status:'fall', failIdx: state.nextStep, pos: state.lastPassAtTargetY ? state.lastPassAtTargetY.clone() : state.pos.clone() };
+        return {
+          status: 'fall',
+          failIdx: state.nextStep,
+          pos: state.lastPassAtTargetY ? state.lastPassAtTargetY.clone() : state.pos.clone()
+        };
       }
     }
     return { status: 'running' };
   }
 
-  // 修正：只調整板的傾角、俯仰角與位置
-  function applyUnifiedCorrectionForFail(failIdx, crossBallPos, failType) {
-    const targetStep = stepsData[failIdx];
-    const prev1Idx = Math.max(0, failIdx - 1);
-    const prev1Step = stepsData[prev1Idx];
+  function applyStepTransform(st, isSelected = false) {
+    st.holder.position.copy(st.pos);
+    st.holder.rotation.y = st.yaw;
+    st.forwardDir.copy(getForwardFromYaw(st.yaw));
+    st.rightDir.copy(getRightFromYaw(st.yaw));
+    st.tiltGroup.rotation.order = 'YXZ';
+    st.tiltGroup.rotation.x = st.pitchRad;
+    st.tiltGroup.rotation.z = st.rollRad;
 
-    targetStep.failCount = (targetStep.failCount || 0) + 1;
-    const attempt = targetStep.failCount;
-
-    const rel = new THREE.Vector3().subVectors(crossBallPos, targetStep.pos);
-    const errRight = rel.dot(targetStep.rightDir);
-    const errForward = rel.dot(targetStep.forwardDir);
-
-    let reasonText = '';
-    const fixSummary = [];
-
-    if (Math.abs(errRight) > .24) {
-      const side = errRight < 0 ? '左側' : '右側';
-      reasonText = failType === 'skip'
-        ? `木球偏向第 ${failIdx + 1} 階${side}飛過，擦撞到後續音板`
-        : `木球偏向第 ${failIdx + 1} 階${side}邊緣滑出`;
-
-      const rollSat = THREE.MathUtils.radToDeg(prev1Step.rollMax - prev1Step.rollMin) < .4;
-
-      if (attempt <= 2 || rollSat) {
-        const w = rollSat ? .95 : .85, md = rollSat ? 3.2 : MAX_PATH_DRIFT_XZ;
-        targetStep.pos.addScaledVector(targetStep.rightDir, THREE.MathUtils.clamp(errRight * w, -md, md));
-        targetStep.pos.addScaledVector(targetStep.forwardDir, THREE.MathUtils.clamp(errForward * .65, -1.1, 1.1));
-        clampPosNearOriginalPath(targetStep, targetStep.pos, md);
-        fixSummary.push(`橫向對齊第 ${failIdx + 1} 階位置`);
-        if (rollSat && failIdx > 0) { prev1Step.rollMin = -MAX_ROLL_RAD; prev1Step.rollMax = MAX_ROLL_RAD; }
-      }
-
-      if (failIdx > 0) {
-        const oldLabel = formatRollLabel(prev1Step.rollRad);
-        if (errRight < 0) prev1Step.rollMin = prev1Step.rollRad; else prev1Step.rollMax = prev1Step.rollRad;
-
-        if (Math.abs(prev1Step.rollMax - prev1Step.rollMin) < THREE.MathUtils.degToRad(.8) && failIdx >= 2) {
-          const p2i = failIdx - 2, p2 = stepsData[p2i], old2 = formatRollLabel(p2.rollRad);
-          if (errRight < 0) p2.rollMin = p2.rollRad; else p2.rollMax = p2.rollRad;
-          const mid2 = .5 * (p2.rollMin + p2.rollMax);
-          if (isRollSafeFromCollision(p2i, mid2)) p2.rollRad = mid2;
-          applyStepTransform(p2, `接力 ${old2}→${formatRollLabel(p2.rollRad)}`);
-          fixSummary.push(`第 ${p2i + 1} 階接力 ${old2}→${formatRollLabel(p2.rollRad)}`);
-        } else {
-          const mid = .5 * (prev1Step.rollMin + prev1Step.rollMax);
-          if (isRollSafeFromCollision(prev1Idx, mid)) {
-            prev1Step.rollRad = mid;
-          } else {
-            if (mid > 0) prev1Step.rollMax = mid; else prev1Step.rollMin = mid;
-            prev1Step.rollRad = .5 * (prev1Step.rollMin + prev1Step.rollMax);
-          }
-          const nl = formatRollLabel(prev1Step.rollRad);
-          applyStepTransform(prev1Step, `${oldLabel}→${nl}`);
-          fixSummary.push(`第 ${prev1Idx + 1} 階傾角 ${oldLabel}→${nl}`);
-        }
-      }
-    } else if (failType === 'skip' || errForward > .25) {
-      reasonText = `木球正向衝力過快，飛越過第 ${failIdx + 1} 階漏掉了這個音`;
-      const pitchSat = THREE.MathUtils.radToDeg(prev1Step.pitchMax - prev1Step.pitchMin) < .35;
-
-      if (attempt <= 2 || pitchSat) {
-        const md = pitchSat ? 3.2 : MAX_PATH_DRIFT_XZ;
-        targetStep.pos.addScaledVector(targetStep.forwardDir, THREE.MathUtils.clamp(Math.max(.35, errForward * .85), .3, 1.35));
-        clampPosNearOriginalPath(targetStep, targetStep.pos, md);
-        fixSummary.push(`前移第 ${failIdx + 1} 階位置`);
-        if (pitchSat && failIdx > 0) { prev1Step.pitchMin = MIN_PITCH_RAD; prev1Step.pitchMax = prev1Step.pitchRad; }
-      }
-
-      if (failIdx > 0) {
-        const od = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
-        prev1Step.pitchMax = prev1Step.pitchRad;
-        prev1Step.pitchRad = .5 * (prev1Step.pitchMin + prev1Step.pitchMax);
-        const nd = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
-        applyStepTransform(prev1Step, `坡度 ${od}°→${nd}°`);
-        fixSummary.push(`第 ${prev1Idx + 1} 階坡度 ${od}°→${nd}°`);
-      }
-    } else {
-      reasonText = `木球提前落下，未跨過第 ${failIdx + 1} 階間隙`;
-      const pitchSat = (THREE.MathUtils.radToDeg(prev1Step.pitchMax - prev1Step.pitchMin) < .35) || (Math.abs(prev1Step.pitchMax - prev1Step.pitchRad) < .005);
-
-      if (pitchSat) {
-        const pull = .55;
-        targetStep.pos.addScaledVector(prev1Step.forwardDir, -pull);
-        for (let k = failIdx + 1; k < stepsData.length; k++) {
-          stepsData[k].pos.addScaledVector(prev1Step.forwardDir, -pull * .65);
-          applyStepTransform(stepsData[k]);
-        }
-        fixSummary.push(`第 ${prev1Idx + 1} 階已達上限，拉近第 ${failIdx + 1} 階距離 ${pull}m`);
-
-        if (failIdx >= 2) {
-          const p2 = stepsData[failIdx - 2];
-          const o2 = THREE.MathUtils.radToDeg(p2.pitchRad).toFixed(1);
-          p2.pitchRad = Math.min(MAX_PITCH_RAD, p2.pitchRad + THREE.MathUtils.degToRad(2.2));
-          const n2 = THREE.MathUtils.radToDeg(p2.pitchRad).toFixed(1);
-          applyStepTransform(p2, `助跑 ${o2}°→${n2}°`);
-          fixSummary.push(`提升第 ${failIdx - 1} 階助跑坡度至 ${n2}°`);
-        }
-      } else {
-        if (attempt <= 2) {
-          targetStep.pos.addScaledVector(targetStep.forwardDir, THREE.MathUtils.clamp(Math.min(-.35, errForward * .8), -1.2, -.3));
-          clampPosNearOriginalPath(targetStep, targetStep.pos, MAX_PATH_DRIFT_XZ);
-          fixSummary.push(`拉近第 ${failIdx + 1} 階位置`);
-        }
-        if (failIdx > 0) {
-          const od = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
-          prev1Step.pitchMin = prev1Step.pitchRad;
-          prev1Step.pitchRad = .5 * (prev1Step.pitchMin + prev1Step.pitchMax);
-          const nd = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
-          applyStepTransform(prev1Step, `坡度 ${od}°→${nd}°`);
-          fixSummary.push(`第 ${prev1Idx + 1} 階坡度 ${od}°→${nd}°`);
-        }
-      }
-    }
-
-    if (failIdx < stepsData.length - 1) {
-      const nx = stepsData[failIdx + 1];
-      const toNext = new THREE.Vector3().subVectors(nx.pos, targetStep.pos).setY(0);
-      if (toNext.length() > .1) targetStep.yaw = Math.atan2(toNext.x, toNext.z);
-    }
-
-    applyStepTransform(targetStep, '位置已校準');
-    if (enforceVerticalClearance(failIdx) > 0) fixSummary.push('拉開垂直距離');
-    return { reasonText, fixSummary };
-  }
-
-  function autoConvergeFullTrackInBackground(maxIterations = 600) {
-    let rounds = 0, solved = false;
-    for (let iter = 0; iter < maxIterations; iter++) {
-      rounds = iter + 1;
-      const first = stepsData[0];
-      const sim = {
-        pos: first.pos.clone().addScaledVector(first.forwardDir, -.45).add(new THREE.Vector3(0, .85, 0)),
-        vel: first.forwardDir.clone().multiplyScalar(1.75),
-        nextStep: 0,
-        triggered: new Array(stepsData.length).fill(false),
-        lastPassAtTargetY: null
-      };
-      let out = { status: 'running' };
-      for (let t = 0; t < 12000; t++) { out = advanceSinglePhysicsStep(sim, 0, null); if (out.status !== 'running') break; }
-
-      if (out.status === 'finished') { solved = true; break; }
-      if (out.status === 'fall' || out.status === 'skip') {
-        applyUnifiedCorrectionForFail(out.failIdx, out.pos, out.status);
-      } else {
-        // 球停在板上：只加大該板俯仰角
-        const s = stepsData[Math.max(0, sim.nextStep - 1)];
-        s.pitchMax = MAX_PITCH_RAD;
-        s.pitchRad = Math.min(MAX_PITCH_RAD, s.pitchRad + THREE.MathUtils.degToRad(1.5));
-        s.pitchMin = s.pitchRad;
-        applyStepTransform(s);
-      }
-    }
-    sync2DPreviewFromSteps();
-    return { solved, roundsUsed: rounds };
+    if (st.barMesh.material.map) st.barMesh.material.map.dispose();
+    st.barMesh.material.map = createWoodBarTexture(st.meta, st.songItem, st.index, isSelected);
+    st.barMesh.material.needsUpdate = true;
   }
 
   function buildPathWithStraightExtension(rawPoints, count) {
@@ -723,18 +591,19 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     liveCalibBadge.textContent = msg;
     liveCalibBadge.classList.add('show');
     clearTimeout(liveCalibTimer);
-    liveCalibTimer = setTimeout(() => liveCalibBadge.classList.remove('show'), 3600);
+    liveCalibTimer = setTimeout(() => liveCalibBadge.classList.remove('show'), 3200);
   }
 
   function buildStairsFrom2DPath(rawPoints) {
     while (stairsGroup.children.length) stairsGroup.remove(stairsGroup.children[0]);
     stepsData = [];
+    selectStep(-1);
 
     const songNotes = getCurrentSong().notes, count = songNotes.length;
     const { posXZ, extendedCount } = buildPathWithStraightExtension(rawPoints, count);
     const startY = (count - 1) * BASE_STEP_DROP_Y;
     const pos3D = posXZ.map((v, i) => new THREE.Vector3(v.x, startY - i * BASE_STEP_DROP_Y, v.y));
-    const defaultPitch = THREE.MathUtils.degToRad(6.2);
+    const defaultPitch = THREE.MathUtils.degToRad(6.5);
 
     for (let i = 0; i < count; i++) {
       const item = songNotes[i], meta = NOTES_META[item.note], pos = pos3D[i];
@@ -756,75 +625,278 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 
       const barMesh = new THREE.Mesh(
         new THREE.BoxGeometry(barWidth, barHeight, barDepth),
-        new THREE.MeshStandardMaterial({ map: createWoodBarTexture(meta, item, i, ''), roughness: .38, metalness: .08 })
+        new THREE.MeshStandardMaterial({ map: createWoodBarTexture(meta, item, i, false), roughness: .38, metalness: .08 })
       );
       barMesh.position.y = -barHeight * .5;
       barMesh.castShadow = true; barMesh.receiveShadow = true;
+      barMesh.userData.stepIndex = i;
       tiltGroup.add(barMesh);
 
       const tube = new THREE.Mesh(new THREE.CylinderGeometry(.13, .13, meta.tubeLen, 16), brassMat);
       tube.position.set(0, -barHeight - meta.tubeLen * .5 - .04, 0);
       tube.castShadow = true;
+      tube.userData.stepIndex = i;
       tiltGroup.add(tube);
 
       [-barWidth * .28, barWidth * .28].forEach(ox => {
         const rail = new THREE.Mesh(new THREE.BoxGeometry(.14, .12, barDepth * 1.1), railMat);
         rail.position.set(ox, -barHeight - .06, 0);
+        rail.userData.stepIndex = i;
         tiltGroup.add(rail);
       });
 
       stairsGroup.add(holder);
+      const basePos = pos.clone();
       stepsData.push({
-        index: i, origPos: pos.clone(), origYaw: yaw, failCount: 0,
-        rollMin: -MAX_ROLL_RAD, rollMax: MAX_ROLL_RAD, pitchMin: MIN_PITCH_RAD, pitchMax: MAX_PITCH_RAD,
-        pos: pos.clone(), forwardDir: getForwardFromYaw(yaw), rightDir: getRightFromYaw(yaw), yaw,
-        pitchRad: initPitch, rollRad: 0, barWidth, barHeight, barDepth, meta, songItem: item,
+        index: i,
+        basePos,
+        savedPos: basePos.clone(),
+        savedPitch: initPitch,
+        savedRoll: 0,
+        offsetRight: 0,
+        offsetFwd: 0,
+        offsetY: 0,
+        pos: basePos.clone(),
+        forwardDir: getForwardFromYaw(yaw),
+        rightDir: getRightFromYaw(yaw),
+        yaw,
+        pitchRad: initPitch,
+        rollRad: 0,
+        barWidth, barHeight, barDepth, meta, songItem: item,
         holder, tiltGroup, barMesh, triggered: false, bounceOffset: 0
       });
     }
 
-    enforceVerticalClearance(1);
-    const conv = autoConvergeFullTrackInBackground(600);
+    sync2DPreviewFromSteps();
     const extHint = extendedCount > 0 ? `（後段 ${extendedCount} 階自動直線延伸）` : '';
-    showLiveCalibMessage(conv.solved
-      ? `✅ 收斂完成（${conv.roundsUsed} 輪），全曲 ${count} 階無吸力通關！${extHint}`
-      : `⚠️ 已完成 ${conv.roundsUsed} 輪優化，仍未全曲通關，請換條較平緩的路徑${extHint}`);
+    showLiveCalibMessage(`✅ 已生成 ${count} 階純物理階梯${extHint}，木球速度已加快`);
   }
 
-  function applyStepTransform(st, adjustNote = '') {
-    st.holder.position.copy(st.pos);
-    st.holder.rotation.y = st.yaw;
-    st.forwardDir.copy(getForwardFromYaw(st.yaw));
-    st.rightDir.copy(getRightFromYaw(st.yaw));
-    st.tiltGroup.rotation.order = 'YXZ';
-    st.tiltGroup.rotation.x = st.pitchRad;
-    st.tiltGroup.rotation.z = st.rollRad;
-    if (adjustNote) {
-      if (st.barMesh.material.map) st.barMesh.material.map.dispose();
-      st.barMesh.material.map = createWoodBarTexture(st.meta, st.songItem, st.index, adjustNote);
-      st.barMesh.material.needsUpdate = true;
-    }
-  }
-
-  // ---------- 失敗即時修正 ----------
-  const failToast = document.getElementById('fail-toast');
+  // ---------- 失敗詢問與手動調整（含後續自動跟隨保持間距） ----------
+  const failModal = document.getElementById('fail-modal');
   const failTitle = document.getElementById('fail-title');
   const failDesc = document.getElementById('fail-desc');
-  const failFixInfo = document.getElementById('fail-fix-info');
+  const boardEditor = document.getElementById('board-editor');
+  const bottomHud = document.getElementById('bottom-hud');
+  const btnFollowChain = document.getElementById('btn-follow-chain');
 
-  function triggerStepFailAndAdjust(failIdx, crossBallPos, failType = 'fall') {
-    if (isRecoveringFromFall) return;
-    isRecoveringFromFall = true;
-    const t = stepsData[failIdx];
-    const { reasonText, fixSummary } = applyUnifiedCorrectionForFail(failIdx, crossBallPos, failType);
-    sync2DPreviewFromSteps();
-    const title = t.songItem.lyric ? `第 ${failIdx + 1} 階「${t.meta.label} · ${t.songItem.lyric}」` : `第 ${failIdx + 1} 階「音階 ${t.meta.label}」`;
-    failTitle.textContent = (failType === 'skip' ? '⚠️ 漏音修正：' : '⚠️ 偏離修正：') + title;
-    failDesc.textContent = reasonText;
-    failFixInfo.textContent = `🔧 ${fixSummary.join('、')}，重新試彈！`;
-    failToast.classList.add('show');
-    setTimeout(() => { failToast.classList.remove('show'); isRecoveringFromFall = false; resetBall(); }, 1250);
+  let lastFailStepIdx = 0;
+
+  btnFollowChain.addEventListener('click', () => {
+    followChainEnabled = !followChainEnabled;
+    btnFollowChain.classList.toggle('active', followChainEnabled);
+    btnFollowChain.textContent = followChainEnabled ? '🔗 後續跟隨：開' : '🔓 後續跟隨：關';
+    showLiveCalibMessage(followChainEnabled
+      ? '🔗 已開啟：調整此板時，後續木板會自動跟隨維持基本間距'
+      : '🔓 已關閉：僅調整目前選中的這塊木板');
+  });
+
+  function onBallFailed(failIdx, crossBallPos, failType) {
+    if (waitingManualChoice) return;
+    waitingManualChoice = true;
+    isSimulationActive = false;
+    lastFailStepIdx = failIdx;
+
+    const st = stepsData[failIdx];
+    const rel = new THREE.Vector3().subVectors(crossBallPos, st.pos);
+    const errRight = rel.dot(st.rightDir);
+    const side = errRight < 0 ? '左側' : '右側';
+
+    const noteTitle = st.songItem.lyric
+      ? `第 ${failIdx + 1} 階「${st.meta.label} · ${st.songItem.lyric}」`
+      : `第 ${failIdx + 1} 階「音階 ${st.meta.label}」`;
+
+    failTitle.textContent = failType === 'skip' ? `⚠️ 漏音：${noteTitle}` : `⚠️ 偏離：${noteTitle}`;
+    failDesc.textContent = failType === 'skip'
+      ? `木球飛越過${noteTitle}，未觸發此音。`
+      : `木球偏向${noteTitle}${side}滑出／掉落。`;
+    failModal.classList.add('show');
   }
+
+  document.getElementById('btn-fail-retry').addEventListener('click', () => {
+    unlockAllAudio();
+    failModal.classList.remove('show');
+    waitingManualChoice = false;
+    resetBall();
+  });
+
+  document.getElementById('btn-fail-manual').addEventListener('click', () => {
+    unlockAllAudio();
+    failModal.classList.remove('show');
+    waitingManualChoice = false;
+    const suggestIdx = Math.max(0, lastFailStepIdx - 1);
+    selectStep(suggestIdx);
+  });
+
+  const slRight = document.getElementById('sl-right');
+  const slFwd = document.getElementById('sl-fwd');
+  const slHeight = document.getElementById('sl-height');
+  const slRoll = document.getElementById('sl-roll');
+  const slPitch = document.getElementById('sl-pitch');
+
+  const valRight = document.getElementById('val-right');
+  const valFwd = document.getElementById('val-fwd');
+  const valHeight = document.getElementById('val-height');
+  const valRoll = document.getElementById('val-roll');
+  const valPitch = document.getElementById('val-pitch');
+
+  function syncEditorUI(st) {
+    document.getElementById('editor-title').textContent =
+      `🎛️ 第 ${st.index + 1} 階「${st.meta.label}${st.songItem.lyric ? '·'+st.songItem.lyric : ''}」(${st.meta.name})`;
+
+    slRight.value = st.offsetRight;
+    slFwd.value = st.offsetFwd;
+    slHeight.value = st.offsetY;
+    slRoll.value = THREE.MathUtils.radToDeg(st.rollRad);
+    slPitch.value = THREE.MathUtils.radToDeg(st.pitchRad);
+
+    valRight.textContent = `${st.offsetRight >= 0 ? '+' : ''}${st.offsetRight.toFixed(2)}m`;
+    valFwd.textContent = `${st.offsetFwd >= 0 ? '+' : ''}${st.offsetFwd.toFixed(2)}m`;
+    valHeight.textContent = `${st.offsetY >= 0 ? '+' : ''}${st.offsetY.toFixed(2)}m`;
+    const rollDeg = THREE.MathUtils.radToDeg(st.rollRad);
+    valRoll.textContent = `${rollDeg >= 0 ? '+' : ''}${rollDeg.toFixed(1)}°`;
+    valPitch.textContent = `${THREE.MathUtils.radToDeg(st.pitchRad).toFixed(1)}°`;
+  }
+
+  function applyStepManualOffsets(st) {
+    const prevPos = st.pos.clone();
+    const fwd = getForwardFromYaw(st.yaw);
+    const right = getRightFromYaw(st.yaw);
+
+    st.pos.copy(st.basePos)
+      .addScaledVector(right, st.offsetRight)
+      .addScaledVector(fwd, st.offsetFwd)
+      .add(new THREE.Vector3(0, st.offsetY, 0));
+
+    const deltaPos = new THREE.Vector3().subVectors(st.pos, prevPos);
+
+    if (followChainEnabled && deltaPos.lengthSq() > 1e-8) {
+      for (let k = st.index + 1; k < stepsData.length; k++) {
+        const follower = stepsData[k];
+        follower.basePos.add(deltaPos);
+        follower.pos.add(deltaPos);
+        applyStepTransform(follower, selectedStepIdx === follower.index);
+      }
+    }
+
+    applyStepTransform(st, selectedStepIdx === st.index);
+    sync2DPreviewFromSteps();
+    syncEditorUI(st);
+  }
+
+  function selectStep(idx) {
+    const prevIdx = selectedStepIdx;
+    selectedStepIdx = idx;
+
+    if (prevIdx >= 0 && prevIdx < stepsData.length && prevIdx !== idx) {
+      applyStepTransform(stepsData[prevIdx], false);
+    }
+
+    if (idx < 0 || idx >= stepsData.length) {
+      selectedStepIdx = -1;
+      boardEditor.classList.remove('show');
+      bottomHud.classList.remove('hidden-for-editor');
+      return;
+    }
+
+    const st = stepsData[idx];
+    applyStepTransform(st, true);
+    syncEditorUI(st);
+    boardEditor.classList.add('show');
+    bottomHud.classList.add('hidden-for-editor');
+    playNoteByKey(st.songItem.note);
+
+    followCam = false;
+    btnFollowCam.classList.remove('active');
+    btnFollowCam.textContent = '🎥 自由視角';
+    controls.target.lerp(st.pos, 0.45);
+  }
+
+  [slRight, slFwd, slHeight, slRoll, slPitch].forEach(el => {
+    el.addEventListener('input', () => {
+      if (selectedStepIdx < 0) return;
+      const st = stepsData[selectedStepIdx];
+      st.offsetRight = parseFloat(slRight.value);
+      st.offsetFwd = parseFloat(slFwd.value);
+      st.offsetY = parseFloat(slHeight.value);
+      st.rollRad = THREE.MathUtils.degToRad(parseFloat(slRoll.value));
+      st.pitchRad = THREE.MathUtils.degToRad(parseFloat(slPitch.value));
+      applyStepManualOffsets(st);
+    });
+  });
+
+  document.querySelectorAll('.nudge-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (selectedStepIdx < 0) return;
+      const st = stepsData[selectedStepIdx];
+      const [axis, deltaStr] = btn.dataset.nudge.split(':');
+      const delta = parseFloat(deltaStr);
+      if (axis === 'right') {
+        st.offsetRight = THREE.MathUtils.clamp(st.offsetRight + delta, -3.5, 3.5);
+      } else if (axis === 'fwd') {
+        st.offsetFwd = THREE.MathUtils.clamp(st.offsetFwd + delta, -2.5, 2.5);
+      } else if (axis === 'height') {
+        st.offsetY = THREE.MathUtils.clamp(st.offsetY + delta, -3.5, 3.5);
+      } else if (axis === 'roll') {
+        const nextDeg = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(st.rollRad) + delta, -22, 22);
+        st.rollRad = THREE.MathUtils.degToRad(nextDeg);
+      }
+      applyStepManualOffsets(st);
+    });
+  });
+
+  document.getElementById('btn-reset-step').addEventListener('click', () => {
+    if (selectedStepIdx < 0) return;
+    const st = stepsData[selectedStepIdx];
+    st.offsetRight = 0;
+    st.offsetFwd = 0;
+    st.offsetY = 0;
+    st.rollRad = st.savedRoll;
+    st.pitchRad = st.savedPitch;
+    applyStepManualOffsets(st);
+  });
+
+  document.getElementById('btn-play-from-step').addEventListener('click', () => {
+    unlockAllAudio();
+    failModal.classList.remove('show');
+    waitingManualChoice = false;
+    selectStep(-1);
+    resetBall();
+  });
+
+  document.getElementById('btn-close-editor').addEventListener('click', () => {
+    selectStep(-1);
+  });
+
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  let downPos = { x: 0, y: 0 };
+
+  renderer.domElement.addEventListener('pointerdown', e => {
+    downPos = { x: e.clientX, y: e.clientY };
+  });
+
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!stepsData.length || !drawOverlay.classList.contains('hidden')) return;
+    const moveDist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+    if (moveDist > 8) return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointerNDC, camera);
+    const hits = raycaster.intersectObjects(stairsGroup.children, true);
+    if (hits.length > 0) {
+      let obj = hits[0].object;
+      while (obj && obj.userData.stepIndex === undefined) obj = obj.parent;
+      if (obj && obj.userData.stepIndex !== undefined) {
+        failModal.classList.remove('show');
+        waitingManualChoice = false;
+        selectStep(obj.userData.stepIndex);
+      }
+    }
+  });
 
   // ---------- 木球 ----------
   const ballMesh = new THREE.Mesh(
@@ -847,10 +919,10 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     const first = stepsData[0];
     simState = {
       pos: first.pos.clone().addScaledVector(first.forwardDir, -.45).add(new THREE.Vector3(0, .85, 0)),
-      vel: first.forwardDir.clone().multiplyScalar(1.75),
+      vel: first.forwardDir.clone().multiplyScalar(INIT_LAUNCH_SPEED),
       nextStep: 0, triggered: new Array(stepsData.length).fill(false), lastPassAtTargetY: null
     };
-    physicsAccumulator = 0; isFinished = false; isSimulationActive = true;
+    physicsAccumulator = 0; isFinished = false; isSimulationActive = true; waitingManualChoice = false;
     ballMesh.visible = true; ballMesh.position.copy(simState.pos);
     updateLyricsUI(-1);
     if (followCam) {
@@ -875,7 +947,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     const song = getCurrentSong(), notes = song.notes;
     if (activeIdx < 0) {
       el.innerHTML = `準備演奏《${songName()}》`;
-      specEl.textContent = '音板越長越厚＝低音｜越短越薄＝高音';
+      specEl.textContent = '純物理碰撞滾動無吸力｜點選任一木板可微調位置與傾角';
       return;
     }
     const start = Math.max(0, activeIdx - 3), end = Math.min(notes.length, start + 8);
@@ -888,7 +960,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
     const st = stepsData[activeIdx];
     if (st) {
       specEl.textContent = activeIdx === notes.length - 1
-        ? `🎉 演奏完成 ${notes.length}/${notes.length} 階！無吸力通關`
+        ? `🎉 演奏完成 ${notes.length}/${notes.length} 階！`
         : `進度 ${activeIdx + 1}/${notes.length} ｜ 音階 ${st.meta.label} (${st.meta.name}) ｜ 音板長 ${st.barWidth.toFixed(2)}m`;
     }
   }
@@ -966,7 +1038,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       return;
     }
     unlockAllAudio(); syncSongHeaderUI();
-    failToast.classList.remove('show'); isRecoveringFromFall = false;
+    failModal.classList.remove('show'); waitingManualChoice = false;
     setTilt(0);
     buildStairsFrom2DPath(drawnPoints);
     drawOverlay.classList.add('hidden');
@@ -975,7 +1047,8 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
 
   document.getElementById('btn-reopen-draw').addEventListener('click', () => {
     isSimulationActive = false;
-    failToast.classList.remove('show'); isRecoveringFromFall = false;
+    failModal.classList.remove('show'); waitingManualChoice = false;
+    selectStep(-1);
     sync2DPreviewFromSteps(); renderDrawCanvas();
     drawOverlay.classList.remove('hidden');
   });
@@ -1016,7 +1089,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   });
 
   document.getElementById('btn-reset-ball').addEventListener('click', () => {
-    unlockAllAudio(); failToast.classList.remove('show'); isRecoveringFromFall = false; resetBall();
+    unlockAllAudio(); failModal.classList.remove('show'); waitingManualChoice = false; resetBall();
   });
   const btnFollowCam = document.getElementById('btn-follow-cam');
   btnFollowCam.addEventListener('click', () => {
@@ -1029,7 +1102,7 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
   const clock = new THREE.Clock();
 
   function stepPhysics(frameDt) {
-    if (!isSimulationActive || !stepsData.length) return;
+    if (!stepsData.length) return;
 
     for (const st of stepsData) {
       if (st.bounceOffset > .001) {
@@ -1043,7 +1116,8 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
       if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
       else { p.vel.y -= 9.8 * frameDt; p.mesh.position.addScaledVector(p.vel, frameDt); p.mesh.scale.setScalar(p.life * 1.8); }
     }
-    if (isRecoveringFromFall) return;
+
+    if (!isSimulationActive || waitingManualChoice) return;
 
     physicsAccumulator += frameDt;
     let run = 0;
@@ -1064,17 +1138,19 @@ input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;widt
         ballMesh.rotateOnWorldAxis(axis, (hs * FIXED_DT) / ballRadius);
       }
 
-      if (outcome.status === 'finished') isFinished = true;
-      else if (outcome.status === 'fall' || outcome.status === 'skip') {
-        triggerStepFailAndAdjust(outcome.failIdx, outcome.pos, outcome.status);
+      if (outcome.status === 'finished') {
+        isFinished = true;
+      } else if (outcome.status === 'fall' || outcome.status === 'skip') {
+        ballMesh.position.copy(simState.pos);
+        onBallFailed(outcome.failIdx, outcome.pos, outcome.status);
         return;
       }
     }
 
     ballMesh.position.copy(simState.pos);
-    if (followCam) {
-      controls.target.lerp(simState.pos.clone().add(new THREE.Vector3(0, -.7, 0)), 5 * frameDt);
-      camera.position.lerp(simState.pos.clone().add(new THREE.Vector3(8.5, 7.8, 9.5)), 3 * frameDt);
+    if (followCam && selectedStepIdx < 0) {
+      controls.target.lerp(simState.pos.clone().add(new THREE.Vector3(0, -.7, 0)), 6.5 * frameDt);
+      camera.position.lerp(simState.pos.clone().add(new THREE.Vector3(8.5, 7.8, 9.5)), 4.2 * frameDt);
     }
   }
 

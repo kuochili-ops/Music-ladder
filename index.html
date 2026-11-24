@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>3D 木琴音樂階梯：無吸力純板面調整版</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+body,html{width:100%;height:100%;overflow:hidden;background:#14110f;color:#f5efe6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",sans-serif}
+#canvas-container{position:fixed;inset:0;z-index:1}
+.draw-overlay{position:fixed;inset:0;z-index:30;background:rgba(18,14,12,.96);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:10px;transition:opacity .25s}
+.draw-overlay.hidden{opacity:0;pointer-events:none}
+.draw-header{text-align:center;max-width:360px}
+.draw-header h2{font-size:17px;color:#fbbf24;margin-bottom:4px}
+.draw-header p{font-size:12px;color:#d6c7b2;line-height:1.4}
+.song-picker{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:360px}
+.song-chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,215,160,.25);color:#e7dac8;border-radius:20px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer}
+.song-chip.active{background:#f59e0b;color:#14110f;border-color:#f59e0b;font-weight:700}
+.canvas-wrap{position:relative;width:min(82vw,320px);height:min(82vw,320px)}
+#draw-canvas{width:100%;height:100%;background:#211b17;border:2px solid rgba(251,191,36,.55);border-radius:22px;touch-action:none;cursor:crosshair;box-shadow:0 12px 36px rgba(0,0,0,.65)}
+.canvas-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;color:rgba(255,224,178,.5);font-size:13.5px;text-align:center;padding:20px;line-height:1.5}
+.canvas-hint.hide{display:none}
+.draw-actions{display:flex;gap:10px;width:min(82vw,320px)}
+.draw-actions .btn{flex:1;justify-content:center;padding:11px 8px;font-size:14px}
+.top-hud{position:fixed;top:max(env(safe-area-inset-top,0px),10px);left:10px;right:10px;z-index:10;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.header-bar{display:flex;align-items:center;justify-content:space-between;gap:6px;background:rgba(28,23,20,.88);backdrop-filter:blur(10px);border:1px solid rgba(255,215,160,.22);border-radius:14px;padding:7px 10px;pointer-events:auto}
+.title-box{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+.badge{width:28px;height:28px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;color:#14110f}
+.title-text{min-width:0}
+.title-text h1{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title-text p{font-size:10px;color:#cbbba8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-group{display:flex;gap:5px;flex-shrink:0}
+.btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,215,160,.28);color:#f5efe6;border-radius:10px;padding:6px 8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:3px;white-space:nowrap}
+.btn:active{transform:scale(.95)}
+.btn.primary{background:#f59e0b;color:#14110f;border-color:#f59e0b;font-weight:700}
+.btn.active{background:#f59e0b;color:#14110f;border-color:#f59e0b}
+.lyrics-card{background:rgba(28,23,20,.84);backdrop-filter:blur(10px);border:1px solid rgba(255,215,160,.18);border-radius:14px;padding:8px 12px;text-align:center;pointer-events:auto}
+.lyrics-line{font-size:18px;font-weight:800;letter-spacing:2px;color:#8c7b6b;min-height:26px;display:flex;justify-content:center;align-items:center;gap:5px}
+.lyrics-line span.done{color:#d6c7b2}
+.lyrics-line span.current{color:#fbbf24;transform:scale(1.22);text-shadow:0 0 12px rgba(251,191,36,.65);border-bottom:2px solid #fbbf24;margin:0 3px}
+.note-spec{margin-top:3px;font-size:11px;color:#d9a05b;font-weight:600}
+.fail-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);z-index:25;background:rgba(24,18,15,.96);border:2px solid #f59e0b;border-radius:18px;padding:16px 20px;width:min(88vw,355px);text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.75);opacity:0;pointer-events:none;transition:all .25s}
+.fail-toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.fail-toast h3{color:#fbbf24;font-size:15.5px;margin-bottom:6px}
+.fail-toast p{color:#f5efe6;font-size:13px;line-height:1.5}
+.fail-toast .sub{color:#38bdf8;font-size:12px;margin-top:6px;font-weight:600}
+.live-calib-badge{position:fixed;top:126px;left:50%;transform:translateX(-50%) translateY(-8px);z-index:18;background:rgba(14,116,144,.94);border:1px solid #38bdf8;color:#e0f2fe;border-radius:20px;padding:6px 14px;font-size:11.5px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:all .22s;max-width:92vw;text-align:center}
+.live-calib-badge.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.bottom-hud{position:fixed;bottom:max(env(safe-area-inset-bottom,0px),12px);left:10px;right:10px;z-index:10;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.tilt-panel{background:rgba(28,23,20,.9);backdrop-filter:blur(12px);border:1px solid rgba(255,215,160,.22);border-radius:14px;padding:8px 12px;pointer-events:auto}
+.tilt-labels{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;margin-bottom:6px;color:#cbbba8}
+.tilt-labels strong{color:#fbbf24}
+.slider-wrap{position:relative;height:30px;display:flex;align-items:center}
+input[type=range]#tilt-slider{-webkit-appearance:none;width:100%;height:10px;border-radius:5px;background:linear-gradient(90deg,#3b82f6 0%,#4b5563 50%,#ef4444 100%);outline:none}
+input[type=range]#tilt-slider::-webkit-slider-thumb{-webkit-appearance:none;width:38px;height:26px;border-radius:13px;background:#fbbf24;border:2px solid #fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.bottom-actions{display:flex;justify-content:space-between;gap:6px;pointer-events:auto}
+.bottom-actions .btn{flex:1;justify-content:center;padding:9px 6px;font-size:12.5px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div class="live-calib-badge" id="live-calib-badge"></div>
+<div class="fail-toast" id="fail-toast">
+  <h3 id="fail-title"></h3><p id="fail-desc"></p><div class="sub" id="fail-fix-info"></div>
+</div>
+
+<div class="draw-overlay" id="draw-overlay">
+  <div class="draw-header">
+    <h2>✏️ 選擇曲目並畫出木球下階梯的路徑</h2>
+    <p>純物理、無任何吸力：只靠調整每塊板的左右傾角、俯仰角與水平／垂直位置，讓球敲到每一塊木板。</p>
+  </div>
+  <div class="song-picker" id="song-picker"></div>
+  <div class="canvas-wrap">
+    <canvas id="draw-canvas" width="320" height="320"></canvas>
+    <div class="canvas-hint" id="canvas-hint">👆 請用手指在這裡畫出路線<br/>（線畫得短會自動以直線接續）</div>
+  </div>
+  <div class="draw-actions">
+    <button class="btn" id="btn-clear-draw">🗑️ 清除重畫</button>
+    <button class="btn primary" id="btn-generate-stairs">✨ 生成 3D 階梯</button>
+  </div>
+</div>
+
+<div class="top-hud">
+  <div class="header-bar">
+    <div class="title-box">
+      <div class="badge">♪</div>
+      <div class="title-text"><h1 id="hud-song-title">生日快樂歌</h1><p id="hud-song-sub">無吸力純板面調整</p></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn active" id="btn-sound">🔊 音效</button>
+      <button class="btn primary" id="btn-reopen-draw">🎵 換曲/重畫</button>
+      <button class="btn" id="btn-gyro">📱 傾斜</button>
+    </div>
+  </div>
+  <div class="lyrics-card">
+    <div class="lyrics-line" id="lyrics-display">等待生成階梯</div>
+    <div class="note-spec" id="note-spec-display">音板越長越厚＝低音｜越短越薄＝高音</div>
+  </div>
+</div>
+
+<div class="bottom-hud">
+  <div class="tilt-panel">
+    <div class="tilt-labels"><span>← 向左傾斜</span><strong id="tilt-readout">水平平衡 (0°)</strong><span>向右傾斜 →</span></div>
+    <div class="slider-wrap"><input type="range" id="tilt-slider" min="-35" max="35" value="0" step="0.5" /></div>
+  </div>
+  <div class="bottom-actions">
+    <button class="btn" id="btn-reset-ball">↻ 重新滾球</button>
+    <button class="btn active" id="btn-follow-cam">🎥 跟隨視角：開</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const NOTES_META = {
+    'G3': { label:'5.', name:'Sol3', freq:196.00, barLength:5.4, barThick:0.38, tubeLen:2.3, woodHue:0.03 },
+    'A3': { label:'6.', name:'La3', freq:220.00, barLength:5.1, barThick:0.36, tubeLen:2.1, woodHue:0.04 },
+    'B3': { label:'7.', name:'Si3', freq:246.94, barLength:4.9, barThick:0.35, tubeLen:2.0, woodHue:0.045 },
+    'C4': { label:'1', name:'Do4', freq:261.63, barLength:4.7, barThick:0.34, tubeLen:1.9, woodHue:0.05 },
+    'D4': { label:'2', name:'Re4', freq:293.66, barLength:4.3, barThick:0.31, tubeLen:1.7, woodHue:0.065 },
+    'E4': { label:'3', name:'Mi4', freq:329.63, barLength:3.9, barThick:0.28, tubeLen:1.5, woodHue:0.08 },
+    'F4': { label:'4', name:'Fa4', freq:349.23, barLength:3.6, barThick:0.26, tubeLen:1.35, woodHue:0.095 },
+    'F#4':{ label:'#4', name:'#Fa4', freq:369.99, barLength:3.45, barThick:0.25, tubeLen:1.25, woodHue:0.102 },
+    'G4': { label:'5', name:'Sol4', freq:392.00, barLength:3.25, barThick:0.24, tubeLen:1.15, woodHue:0.11 },
+    'A4': { label:'6', name:'La4', freq:440.00, barLength:2.95, barThick:0.22, tubeLen:0.98, woodHue:0.125 },
+    'Bb4':{ label:'b7', name:'bSi4', freq:466.16, barLength:2.75, barThick:0.20, tubeLen:0.88, woodHue:0.14 },
+    'B4': { label:'7', name:'Si4', freq:493.88, barLength:2.6, barThick:0.19, tubeLen:0.82, woodHue:0.15 },
+    'C5': { label:'i', name:'Do5', freq:523.25, barLength:2.45, barThick:0.18, tubeLen:0.74, woodHue:0.16 },
+    'D5': { label:"2'", name:'Re5', freq:587.33, barLength:2.25, barThick:0.17, tubeLen:0.64, woodHue:0.175 },
+    'E5': { label:"3'", name:'Mi5', freq:659.25, barLength:2.05, barThick:0.16, tubeLen:0.55, woodHue:0.19 }
+  };
+
+  const n = (note, beat, lyric) => ({ note, beat, lyric });
+  const SONGS_LIBRARY = {
+    birthday: { title:'🎂 生日快樂歌', hasLyrics:true, notes:[
+      n('C4',.85,'祝'),n('C4',.85,'你'),n('D4',1,'生'),n('C4',1,'日'),n('F4',1,'快'),n('E4',1.35,'樂'),
+      n('C4',.85,'祝'),n('C4',.85,'你'),n('D4',1,'生'),n('C4',1,'日'),n('G4',1,'快'),n('F4',1.35,'樂'),
+      n('C4',.85,'祝'),n('C4',.85,'你'),n('C5',1,'生'),n('A4',1,'日'),n('F4',1,'快'),n('E4',1,'樂'),n('D4',1.35,'啊'),
+      n('Bb4',.85,'祝'),n('Bb4',.85,'你'),n('A4',1,'生'),n('F4',1,'日'),n('G4',1,'快'),n('F4',1.5,'樂')] },
+    ode_to_joy: { title:'🎶 歡樂頌', hasLyrics:false, notes:[
+      ...['E4','E4','F4','G4','G4','F4','E4','D4','C4','C4','D4','E4'].map(k=>n(k,1)),
+      n('E4',1.25),n('D4',.85),n('D4',1.45),
+      ...['E4','E4','F4','G4','G4','F4','E4','D4','C4','C4','D4','E4'].map(k=>n(k,1)),
+      n('D4',1.25),n('C4',.85),n('C4',1.5)] },
+    twinkle: { title:'⭐ 小星星', hasLyrics:false, notes:[
+      ...['C4','C4','G4','G4','A4','A4'].map(k=>n(k,1)),n('G4',1.4),
+      ...['F4','F4','E4','E4','D4','D4'].map(k=>n(k,1)),n('C4',1.4),
+      ...['G4','G4','F4','F4','E4','E4'].map(k=>n(k,1)),n('D4',1.4),
+      ...['C4','C4','G4','G4','A4','A4'].map(k=>n(k,1)),n('G4',1.5)] },
+    jingle_bells: { title:'🎄 聖誕鈴聲', hasLyrics:false, notes:[
+      n('E4',.9),n('E4',.9),n('E4',1.3),n('E4',.9),n('E4',.9),n('E4',1.3),
+      n('E4',.9),n('G4',.9),n('C4',1.1),n('D4',.85),n('E4',1.5),
+      n('F4',.9),n('F4',.9),n('F4',1),n('F4',.85),n('F4',.9),n('E4',.9),n('E4',.9),n('E4',.85),
+      n('E4',.9),n('D4',.9),n('D4',.9),n('E4',.9),n('D4',1.25),n('G4',1.45)] },
+    canon: { title:'🎼 卡農經典', hasLyrics:false, notes:[
+      ...['E5','D5','C5','B4','A4','G4','A4','B4'].map(k=>n(k,1.15)),
+      ...['C5','G4','E4','C4','D4','F4','A4','G4','E4','C4','D4','B3','C4','E4','G4'].map(k=>n(k,.9)),
+      n('C5',1.35)] }
+  };
+
+  let currentSongKey = 'birthday';
+  const getCurrentSong = () => SONGS_LIBRARY[currentSongKey];
+  const songName = () => getCurrentSong().title.replace(/^[^\s]+\s/, '');
+
+  function syncSongHeaderUI() {
+    document.getElementById('hud-song-title').textContent = songName();
+    document.getElementById('hud-song-sub').textContent = `全曲 ${getCurrentSong().notes.length} 音｜無吸力純板面調整`;
+  }
+
+  const songPickerEl = document.getElementById('song-picker');
+  Object.keys(SONGS_LIBRARY).forEach(key => {
+    const btn = document.createElement('button');
+    btn.className = 'song-chip' + (key === currentSongKey ? ' active' : '');
+    btn.textContent = SONGS_LIBRARY[key].title;
+    btn.addEventListener('click', () => {
+      currentSongKey = key;
+      document.querySelectorAll('.song-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      adjusted2DPreview = [];
+      syncSongHeaderUI();
+      unlockAllAudio();
+      playNoteByKey(SONGS_LIBRARY[key].notes[0].note);
+      renderDrawCanvas();
+    });
+    songPickerEl.appendChild(btn);
+  });
+  syncSongHeaderUI();
+
+  // ---------- 音效 ----------
+  let soundEnabled = true, audioCtx = null, audioUnlocked = false;
+  const wavPool = {};
+
+  function generateMarimbaWavDataURI(freq, duration = 0.65) {
+    const sr = 22050, num = Math.floor(sr * duration);
+    const buffer = new ArrayBuffer(44 + num * 2), view = new DataView(buffer);
+    const ws = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    ws(0,'RIFF'); view.setUint32(4,36+num*2,true); ws(8,'WAVE'); ws(12,'fmt ');
+    view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true);
+    view.setUint32(24,sr,true); view.setUint32(28,sr*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true);
+    ws(36,'data'); view.setUint32(40,num*2,true);
+    for (let i = 0; i < num; i++) {
+      const t = i / sr;
+      const e1 = Math.min(1,t/.008)*Math.exp(-t*5.2), e2 = Math.min(1,t/.005)*Math.exp(-t*14), e3 = Math.min(1,t/.003)*Math.exp(-t*28);
+      const w = .65*Math.sin(2*Math.PI*freq*t)*e1 + .25*Math.sin(2*Math.PI*freq*2*t)*e2 + .15*Math.sin(2*Math.PI*freq*4*t)*e3;
+      const s = Math.max(-1, Math.min(1, w));
+      view.setInt16(44 + i*2, s < 0 ? s*0x8000 : s*0x7FFF, true);
+    }
+    let bin = ''; const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    return 'data:audio/wav;base64,' + btoa(bin);
+  }
+
+  Object.keys(NOTES_META).forEach(k => {
+    const uri = generateMarimbaWavDataURI(NOTES_META[k].freq, 0.72);
+    wavPool[k] = { idx: 0, players: [0,1,2].map(() => { const a = new Audio(uri); a.preload = 'auto'; a.setAttribute('playsinline',''); return a; }) };
+  });
+
+  function unlockAllAudio() {
+    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (!audioUnlocked) {
+      audioUnlocked = true;
+      Object.values(wavPool).forEach(pool => pool.players.forEach(p => {
+        p.volume = 0.01;
+        const pr = p.play();
+        if (pr && pr.then) pr.then(() => { p.pause(); p.currentTime = 0; p.volume = 1; }).catch(() => { p.volume = 1; });
+        else p.volume = 1;
+      }));
+    }
+  }
+
+  function playNoteByKey(k) {
+    if (!soundEnabled) return;
+    unlockAllAudio();
+    const pool = wavPool[k];
+    if (pool) {
+      const p = pool.players[pool.idx]; pool.idx = (pool.idx + 1) % pool.players.length;
+      p.volume = 1; p.currentTime = 0; p.play().catch(() => {});
+    }
+    if (audioCtx && audioCtx.state === 'running' && NOTES_META[k]) {
+      const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.setValueAtTime(NOTES_META[k].freq, now);
+      g.gain.setValueAtTime(.001, now); g.gain.linearRampToValueAtTime(.28, now + .01); g.gain.exponentialRampToValueAtTime(.001, now + .55);
+      osc.connect(g).connect(audioCtx.destination); osc.start(now); osc.stop(now + .6);
+    }
+  }
+
+  window.addEventListener('pointerdown', unlockAllAudio, { passive: true });
+  window.addEventListener('touchstart', unlockAllAudio, { passive: true });
+
+  const btnSound = document.getElementById('btn-sound');
+  btnSound.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    btnSound.classList.toggle('active', soundEnabled);
+    btnSound.textContent = soundEnabled ? '🔊 音效' : '🔇 靜音';
+    if (soundEnabled) playNoteByKey('C5');
+  });
+
+  // ---------- Three.js 場景 ----------
+  const container = document.getElementById('canvas-container');
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x14110f);
+  scene.fog = new THREE.FogExp2(0x14110f, 0.005);
+
+  const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 500);
+  camera.position.set(12, 14, 16);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.06; controls.maxPolarAngle = Math.PI * 0.85;
+
+  scene.add(new THREE.HemisphereLight(0xfff1dc, 0x2b211a, 0.85));
+  const dirLight = new THREE.DirectionalLight(0xffe6c2, 1.15);
+  dirLight.position.set(18, 42, 16);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(1024, 1024);
+  Object.assign(dirLight.shadow.camera, { left:-60, right:60, top:60, bottom:-60 });
+  scene.add(dirLight);
+
+  const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: .78, roughness: .25 });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x2a211b, metalness: .3, roughness: .7 });
+
+  function createWoodBarTexture(meta, songItem, stepIdx, adjustNote = '') {
+    const adj = Boolean(adjustNote);
+    const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+    const ctx = c.getContext('2d');
+    const hue = adj ? 200 : Math.round(meta.woodHue * 360);
+    const g = ctx.createLinearGradient(0, 0, 512, 0);
+    g.addColorStop(0, `hsl(${hue},58%,25%)`); g.addColorStop(.5, `hsl(${hue+4},64%,34%)`); g.addColorStop(1, `hsl(${hue},58%,25%)`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 80; i++) {
+      ctx.strokeStyle = i % 2 ? 'rgba(255,200,140,.06)' : 'rgba(30,12,4,.16)';
+      ctx.lineWidth = 1 + Math.random() * 2.5;
+      ctx.beginPath();
+      const y = Math.random() * 256;
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(170, y + (Math.random()-.5)*14, 340, y + (Math.random()-.5)*14, 512, y);
+      ctx.stroke();
+    }
+    [115, 397].forEach(x => {
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath(); ctx.arc(x, 42, 8, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, 214, 8, 0, 6.2832); ctx.fill();
+    });
+    ctx.fillStyle = '#fef3c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold 66px sans-serif';
+    ctx.fillText(songItem.lyric ? `${meta.label} · ${songItem.lyric}` : `#${stepIdx+1} 音階 ${meta.label}`, 256, 118);
+    ctx.fillStyle = adj ? '#7dd3fc' : '#fcd34d';
+    ctx.font = '600 24px monospace';
+    ctx.fillText(adj ? adjustNote : `${meta.name} | 音板長 ${meta.barLength.toFixed(1)}m`, 256, 184);
+    ctx.strokeStyle = adj ? 'rgba(56,189,248,.85)' : 'rgba(253,224,71,.45)';
+    ctx.lineWidth = 8; ctx.strokeRect(4, 4, 504, 248);
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4; return tex;
+  }
+
+  function createWoodBallTexture() {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#d99b52'; ctx.fillRect(0, 0, 256, 128);
+    for (let y = 0; y < 128; y += 3) {
+      ctx.fillStyle = (y % 6 === 0) ? 'rgba(92,50,16,.28)' : 'rgba(255,232,195,.16)';
+      ctx.fillRect(0, y, 256, 2);
+    }
+    return new THREE.CanvasTexture(c);
+  }
+
+  // ---------- 物理與自動收斂（無任何吸力／導引） ----------
+  const stairsGroup = new THREE.Group();
+  scene.add(stairsGroup);
+  let stepsData = [], adjusted2DPreview = [], particles = [];
+  let isSimulationActive = false, isRecoveringFromFall = false;
+
+  const SCALE_XZ = 36.0, STEP_SPACING = 2.48, BASE_STEP_DROP_Y = 1.24, MAX_PATH_DRIFT_XZ = 2.15;
+  const MAX_ROLL_DEG = 22.0;
+  const MAX_ROLL_RAD = THREE.MathUtils.degToRad(MAX_ROLL_DEG);
+  const MIN_PITCH_RAD = THREE.MathUtils.degToRad(1.5);
+  const MAX_PITCH_RAD = THREE.MathUtils.degToRad(15.5);
+  const ballRadius = 0.36;
+  const FIXED_DT = 1 / 240;
+  let physicsAccumulator = 0;
+
+  const getForwardFromYaw = yaw => new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+  const getRightFromYaw = yaw => new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw)).normalize();
+
+  function sync2DPreviewFromSteps() {
+    if (!stepsData.length) return;
+    adjusted2DPreview = stepsData.map(st => ({ x: st.pos.x / SCALE_XZ + .5, y: st.pos.z / SCALE_XZ + .5 }));
+  }
+
+  function clampPosNearOriginalPath(st, p, maxDrift = MAX_PATH_DRIFT_XZ) {
+    const dx = p.x - st.origPos.x, dz = p.z - st.origPos.z, d = Math.hypot(dx, dz);
+    if (d > maxDrift) { const r = maxDrift / d; p.x = st.origPos.x + dx * r; p.z = st.origPos.z + dz * r; }
+    return p;
+  }
+
+  function getStepCornerSamples(st, overrideRoll = null) {
+    const roll = overrideRoll !== null ? overrideRoll : st.rollRad;
+    const hw = st.barWidth * .5, hd = st.barDepth * .5, pts = [];
+    for (const rx of [-hw, 0, hw]) for (const fz of [-hd, 0, hd]) {
+      const topY = st.pos.y - fz * Math.tan(st.pitchRad) - rx * Math.tan(roll);
+      pts.push({
+        x: st.pos.x + st.rightDir.x * rx + st.forwardDir.x * fz,
+        y: topY,
+        z: st.pos.z + st.rightDir.z * rx + st.forwardDir.z * fz,
+        bottomY: topY - st.barHeight
+      });
+    }
+    return pts;
+  }
+
+  function isPointInsideStepFootprintXZ(px, pz, t, margin = .25) {
+    const dx = px - t.pos.x, dz = pz - t.pos.z;
+    const lr = dx * t.rightDir.x + dz * t.rightDir.z, lf = dx * t.forwardDir.x + dz * t.forwardDir.z;
+    return Math.abs(lr) <= t.barWidth * .5 + margin && Math.abs(lf) <= t.barDepth * .5 + margin;
+  }
+
+  function isRollSafeFromCollision(idx, candRoll) {
+    if (Math.abs(candRoll) > MAX_ROLL_RAD + 1e-4) return false;
+    const st = stepsData[idx], samples = getStepCornerSamples(st, candRoll);
+    if (idx < stepsData.length - 1) {
+      const next = stepsData[idx + 1];
+      const hiY = next.pos.y + (next.barWidth * .5) * Math.sin(Math.abs(next.rollRad));
+      for (const p of samples) if (isPointInsideStepFootprintXZ(p.x, p.z, next, .2) && p.bottomY <= hiY + .22) return false;
+    }
+    if (idx > 0) {
+      const prev = stepsData[idx - 1];
+      const loY = prev.pos.y - prev.barHeight - (prev.barWidth * .5) * Math.sin(Math.abs(prev.rollRad)) - (prev.barDepth * .5) * Math.sin(prev.pitchRad);
+      for (const p of samples) if (isPointInsideStepFootprintXZ(p.x, p.z, prev, .2) && p.y >= loY - .22) return false;
+    }
+    return true;
+  }
+
+  function enforceVerticalClearance(fromIdx = 1) {
+    let pulled = 0;
+    for (let i = Math.max(1, fromIdx); i < stepsData.length; i++) {
+      const cur = stepsData[i], prev = stepsData[i - 1];
+      const turn = Math.acos(THREE.MathUtils.clamp(cur.forwardDir.dot(prev.forwardDir), -1, 1));
+      const minDrop = 1.02 + (turn / Math.PI) * .65;
+      if (cur.pos.y > prev.pos.y - minDrop) { cur.pos.y = prev.pos.y - minDrop; pulled++; }
+
+      for (let j = 0; j < i; j++) {
+        const upper = stepsData[j];
+        const cs = getStepCornerSamples(cur), us = getStepCornerSamples(upper);
+        if (j === i - 1) {
+          let overlap = false;
+          for (const p of cs) if (isPointInsideStepFootprintXZ(p.x, p.z, upper, .3)) overlap = true;
+          for (const p of us) if (isPointInsideStepFootprintXZ(p.x, p.z, cur, .3)) overlap = true;
+          if (overlap) {
+            const upMinBottom = Math.min(...us.map(p => p.bottomY));
+            const curMaxTop = Math.max(...cs.map(p => p.y));
+            if (curMaxTop > upMinBottom - .32) { cur.pos.y -= curMaxTop - (upMinBottom - .32); pulled++; }
+          }
+        } else {
+          const dist = Math.hypot(cur.pos.x - upper.pos.x, cur.pos.z - upper.pos.z);
+          if (dist < (cur.barWidth + upper.barWidth) * .36) {
+            const safe = upper.pos.y - upper.barHeight - upper.meta.tubeLen - .65;
+            if (cur.pos.y > safe) { cur.pos.y = safe; pulled++; }
+          }
+        }
+      }
+      applyStepTransform(cur);
+    }
+    return pulled;
+  }
+
+  function formatRollLabel(r) {
+    const d = THREE.MathUtils.radToDeg(r);
+    if (Math.abs(d) < .4) return '0°';
+    return d > 0 ? `右傾${Math.abs(d).toFixed(1)}°` : `左傾${Math.abs(d).toFixed(1)}°`;
+  }
+
+  // 無吸力物理：只有重力、板面坡度分量、碰撞反彈與輕微滾動阻力
+  function advanceSinglePhysicsStep(state, tiltDeg, onStepTriggered = null) {
+    const subDt = FIXED_DT, gravity = 18.0;
+    state.vel.y -= gravity * subDt;
+
+    const refStep = stepsData[Math.max(0, Math.min(state.nextStep - 1, stepsData.length - 1))];
+    state.vel.addScaledVector(refStep.rightDir, Math.sin(THREE.MathUtils.degToRad(tiltDeg)) * 9.5 * subDt);
+
+    state.vel.x *= (1 - .14 * subDt);
+    state.vel.z *= (1 - .14 * subDt);
+    state.pos.addScaledVector(state.vel, subDt);
+
+    if (state.nextStep < stepsData.length) {
+      const t = stepsData[state.nextStep];
+      if (state.pos.y >= t.pos.y + ballRadius - .15) state.lastPassAtTargetY = state.pos.clone();
+    }
+
+    // 漏音檢測
+    if (state.nextStep + 1 < stepsData.length) {
+      for (let k = state.nextStep + 1; k <= Math.min(stepsData.length - 1, state.nextStep + 2); k++) {
+        const s = stepsData[k];
+        const rel = new THREE.Vector3().subVectors(state.pos, s.pos);
+        const lr = rel.dot(s.rightDir), lf = rel.dot(s.forwardDir);
+        if (Math.abs(lr) <= s.barWidth * .5 && Math.abs(lf) <= s.barDepth * .5) {
+          const surfY = s.pos.y - lf * Math.tan(s.pitchRad) - lr * Math.tan(s.rollRad) + ballRadius;
+          if (state.pos.y <= surfY && state.pos.y >= surfY - .5 && state.vel.y <= .5) {
+            return { status:'skip', failIdx: state.nextStep, pos: state.lastPassAtTargetY ? state.lastPassAtTargetY.clone() : state.pos.clone() };
+          }
+        }
+      }
+    }
+
+    // 板面接觸
+    const cand = [];
+    if (state.nextStep > 0) cand.push(state.nextStep - 1);
+    if (state.nextStep < stepsData.length) cand.push(state.nextStep);
+
+    for (const i of cand) {
+      const st = stepsData[i];
+      const rel = new THREE.Vector3().subVectors(state.pos, st.pos);
+      const lr = rel.dot(st.rightDir), lf = rel.dot(st.forwardDir);
+      if (Math.abs(lr) <= st.barWidth * .5 && Math.abs(lf) <= st.barDepth * .5) {
+        const surfY = st.pos.y - lf * Math.tan(st.pitchRad) - lr * Math.tan(st.rollRad) + ballRadius;
+        if (state.pos.y <= surfY && state.pos.y >= surfY - .52 && state.vel.y <= .5) {
+          state.pos.y = surfY;
+          const isFinal = (i === stepsData.length - 1) && state.triggered[i];
+
+          if (isFinal) {
+            state.vel.y = 0;
+            state.vel.x *= Math.pow(.05, subDt);
+            state.vel.z *= Math.pow(.05, subDt);
+          } else {
+            const impact = Math.abs(state.vel.y);
+            if (impact > 1.35) {
+              state.vel.y = Math.min(2.65, impact * .38);
+            } else {
+              state.vel.y = -state.vel.dot(st.forwardDir) * Math.tan(st.pitchRad) - state.vel.dot(st.rightDir) * Math.tan(st.rollRad);
+            }
+            // 只有真實的重力坡度分量
+            state.vel.addScaledVector(st.forwardDir, gravity * Math.sin(st.pitchRad) * subDt);
+            state.vel.addScaledVector(st.rightDir, gravity * Math.sin(st.rollRad) * subDt);
+            // 輕微滾動阻力
+            const k = Math.pow(.55, subDt);
+            state.vel.x *= k; state.vel.z *= k;
+          }
+
+          if (!state.triggered[i] && i === state.nextStep) {
+            state.triggered[i] = true;
+            state.nextStep = i + 1;
+            state.lastPassAtTargetY = null;
+            if (onStepTriggered) onStepTriggered(i, lr);
+            if (i === stepsData.length - 1) return { status: 'finished' };
+          }
+          break;
+        }
+      }
+    }
+
+    if (state.nextStep < stepsData.length) {
+      const exp = stepsData[state.nextStep];
+      if (state.pos.y < exp.pos.y - 1.45) {
+        return { status:'fall', failIdx: state.nextStep, pos: state.lastPassAtTargetY ? state.lastPassAtTargetY.clone() : state.pos.clone() };
+      }
+    }
+    return { status: 'running' };
+  }
+
+  // 修正：只調整板的傾角、俯仰角與位置
+  function applyUnifiedCorrectionForFail(failIdx, crossBallPos, failType) {
+    const targetStep = stepsData[failIdx];
+    const prev1Idx = Math.max(0, failIdx - 1);
+    const prev1Step = stepsData[prev1Idx];
+
+    targetStep.failCount = (targetStep.failCount || 0) + 1;
+    const attempt = targetStep.failCount;
+
+    const rel = new THREE.Vector3().subVectors(crossBallPos, targetStep.pos);
+    const errRight = rel.dot(targetStep.rightDir);
+    const errForward = rel.dot(targetStep.forwardDir);
+
+    let reasonText = '';
+    const fixSummary = [];
+
+    if (Math.abs(errRight) > .24) {
+      const side = errRight < 0 ? '左側' : '右側';
+      reasonText = failType === 'skip'
+        ? `木球偏向第 ${failIdx + 1} 階${side}飛過，擦撞到後續音板`
+        : `木球偏向第 ${failIdx + 1} 階${side}邊緣滑出`;
+
+      const rollSat = THREE.MathUtils.radToDeg(prev1Step.rollMax - prev1Step.rollMin) < .4;
+
+      if (attempt <= 2 || rollSat) {
+        const w = rollSat ? .95 : .85, md = rollSat ? 3.2 : MAX_PATH_DRIFT_XZ;
+        targetStep.pos.addScaledVector(targetStep.rightDir, THREE.MathUtils.clamp(errRight * w, -md, md));
+        targetStep.pos.addScaledVector(targetStep.forwardDir, THREE.MathUtils.clamp(errForward * .65, -1.1, 1.1));
+        clampPosNearOriginalPath(targetStep, targetStep.pos, md);
+        fixSummary.push(`橫向對齊第 ${failIdx + 1} 階位置`);
+        if (rollSat && failIdx > 0) { prev1Step.rollMin = -MAX_ROLL_RAD; prev1Step.rollMax = MAX_ROLL_RAD; }
+      }
+
+      if (failIdx > 0) {
+        const oldLabel = formatRollLabel(prev1Step.rollRad);
+        if (errRight < 0) prev1Step.rollMin = prev1Step.rollRad; else prev1Step.rollMax = prev1Step.rollRad;
+
+        if (Math.abs(prev1Step.rollMax - prev1Step.rollMin) < THREE.MathUtils.degToRad(.8) && failIdx >= 2) {
+          const p2i = failIdx - 2, p2 = stepsData[p2i], old2 = formatRollLabel(p2.rollRad);
+          if (errRight < 0) p2.rollMin = p2.rollRad; else p2.rollMax = p2.rollRad;
+          const mid2 = .5 * (p2.rollMin + p2.rollMax);
+          if (isRollSafeFromCollision(p2i, mid2)) p2.rollRad = mid2;
+          applyStepTransform(p2, `接力 ${old2}→${formatRollLabel(p2.rollRad)}`);
+          fixSummary.push(`第 ${p2i + 1} 階接力 ${old2}→${formatRollLabel(p2.rollRad)}`);
+        } else {
+          const mid = .5 * (prev1Step.rollMin + prev1Step.rollMax);
+          if (isRollSafeFromCollision(prev1Idx, mid)) {
+            prev1Step.rollRad = mid;
+          } else {
+            if (mid > 0) prev1Step.rollMax = mid; else prev1Step.rollMin = mid;
+            prev1Step.rollRad = .5 * (prev1Step.rollMin + prev1Step.rollMax);
+          }
+          const nl = formatRollLabel(prev1Step.rollRad);
+          applyStepTransform(prev1Step, `${oldLabel}→${nl}`);
+          fixSummary.push(`第 ${prev1Idx + 1} 階傾角 ${oldLabel}→${nl}`);
+        }
+      }
+    } else if (failType === 'skip' || errForward > .25) {
+      reasonText = `木球正向衝力過快，飛越過第 ${failIdx + 1} 階漏掉了這個音`;
+      const pitchSat = THREE.MathUtils.radToDeg(prev1Step.pitchMax - prev1Step.pitchMin) < .35;
+
+      if (attempt <= 2 || pitchSat) {
+        const md = pitchSat ? 3.2 : MAX_PATH_DRIFT_XZ;
+        targetStep.pos.addScaledVector(targetStep.forwardDir, THREE.MathUtils.clamp(Math.max(.35, errForward * .85), .3, 1.35));
+        clampPosNearOriginalPath(targetStep, targetStep.pos, md);
+        fixSummary.push(`前移第 ${failIdx + 1} 階位置`);
+        if (pitchSat && failIdx > 0) { prev1Step.pitchMin = MIN_PITCH_RAD; prev1Step.pitchMax = prev1Step.pitchRad; }
+      }
+
+      if (failIdx > 0) {
+        const od = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
+        prev1Step.pitchMax = prev1Step.pitchRad;
+        prev1Step.pitchRad = .5 * (prev1Step.pitchMin + prev1Step.pitchMax);
+        const nd = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
+        applyStepTransform(prev1Step, `坡度 ${od}°→${nd}°`);
+        fixSummary.push(`第 ${prev1Idx + 1} 階坡度 ${od}°→${nd}°`);
+      }
+    } else {
+      reasonText = `木球提前落下，未跨過第 ${failIdx + 1} 階間隙`;
+      const pitchSat = (THREE.MathUtils.radToDeg(prev1Step.pitchMax - prev1Step.pitchMin) < .35) || (Math.abs(prev1Step.pitchMax - prev1Step.pitchRad) < .005);
+
+      if (pitchSat) {
+        const pull = .55;
+        targetStep.pos.addScaledVector(prev1Step.forwardDir, -pull);
+        for (let k = failIdx + 1; k < stepsData.length; k++) {
+          stepsData[k].pos.addScaledVector(prev1Step.forwardDir, -pull * .65);
+          applyStepTransform(stepsData[k]);
+        }
+        fixSummary.push(`第 ${prev1Idx + 1} 階已達上限，拉近第 ${failIdx + 1} 階距離 ${pull}m`);
+
+        if (failIdx >= 2) {
+          const p2 = stepsData[failIdx - 2];
+          const o2 = THREE.MathUtils.radToDeg(p2.pitchRad).toFixed(1);
+          p2.pitchRad = Math.min(MAX_PITCH_RAD, p2.pitchRad + THREE.MathUtils.degToRad(2.2));
+          const n2 = THREE.MathUtils.radToDeg(p2.pitchRad).toFixed(1);
+          applyStepTransform(p2, `助跑 ${o2}°→${n2}°`);
+          fixSummary.push(`提升第 ${failIdx - 1} 階助跑坡度至 ${n2}°`);
+        }
+      } else {
+        if (attempt <= 2) {
+          targetStep.pos.addScaledVector(targetStep.forwardDir, THREE.MathUtils.clamp(Math.min(-.35, errForward * .8), -1.2, -.3));
+          clampPosNearOriginalPath(targetStep, targetStep.pos, MAX_PATH_DRIFT_XZ);
+          fixSummary.push(`拉近第 ${failIdx + 1} 階位置`);
+        }
+        if (failIdx > 0) {
+          const od = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
+          prev1Step.pitchMin = prev1Step.pitchRad;
+          prev1Step.pitchRad = .5 * (prev1Step.pitchMin + prev1Step.pitchMax);
+          const nd = THREE.MathUtils.radToDeg(prev1Step.pitchRad).toFixed(1);
+          applyStepTransform(prev1Step, `坡度 ${od}°→${nd}°`);
+          fixSummary.push(`第 ${prev1Idx + 1} 階坡度 ${od}°→${nd}°`);
+        }
+      }
+    }
+
+    if (failIdx < stepsData.length - 1) {
+      const nx = stepsData[failIdx + 1];
+      const toNext = new THREE.Vector3().subVectors(nx.pos, targetStep.pos).setY(0);
+      if (toNext.length() > .1) targetStep.yaw = Math.atan2(toNext.x, toNext.z);
+    }
+
+    applyStepTransform(targetStep, '位置已校準');
+    if (enforceVerticalClearance(failIdx) > 0) fixSummary.push('拉開垂直距離');
+    return { reasonText, fixSummary };
+  }
+
+  function autoConvergeFullTrackInBackground(maxIterations = 600) {
+    let rounds = 0, solved = false;
+    for (let iter = 0; iter < maxIterations; iter++) {
+      rounds = iter + 1;
+      const first = stepsData[0];
+      const sim = {
+        pos: first.pos.clone().addScaledVector(first.forwardDir, -.45).add(new THREE.Vector3(0, .85, 0)),
+        vel: first.forwardDir.clone().multiplyScalar(1.75),
+        nextStep: 0,
+        triggered: new Array(stepsData.length).fill(false),
+        lastPassAtTargetY: null
+      };
+      let out = { status: 'running' };
+      for (let t = 0; t < 12000; t++) { out = advanceSinglePhysicsStep(sim, 0, null); if (out.status !== 'running') break; }
+
+      if (out.status === 'finished') { solved = true; break; }
+      if (out.status === 'fall' || out.status === 'skip') {
+        applyUnifiedCorrectionForFail(out.failIdx, out.pos, out.status);
+      } else {
+        // 球停在板上：只加大該板俯仰角
+        const s = stepsData[Math.max(0, sim.nextStep - 1)];
+        s.pitchMax = MAX_PITCH_RAD;
+        s.pitchRad = Math.min(MAX_PITCH_RAD, s.pitchRad + THREE.MathUtils.degToRad(1.5));
+        s.pitchMin = s.pitchRad;
+        applyStepTransform(s);
+      }
+    }
+    sync2DPreviewFromSteps();
+    return { solved, roundsUsed: rounds };
+  }
+
+  function buildPathWithStraightExtension(rawPoints, count) {
+    let pts = rawPoints.map(p => ({ x: p.x, y: p.y }));
+    for (let pass = 0; pass < 4; pass++) {
+      const next = [pts[0]];
+      for (let i = 1; i < pts.length - 1; i++) {
+        next.push({ x: pts[i-1].x*.25 + pts[i].x*.5 + pts[i+1].x*.25, y: pts[i-1].y*.25 + pts[i].y*.5 + pts[i+1].y*.25 });
+      }
+      next.push(pts[pts.length - 1]);
+      pts = next;
+    }
+    const worldPts = pts.map(p => new THREE.Vector2((p.x - .5) * SCALE_XZ, (p.y - .5) * SCALE_XZ));
+    const cum = [0];
+    for (let i = 1; i < worldPts.length; i++) cum.push(cum[i-1] + worldPts[i].distanceTo(worldPts[i-1]));
+    const total = cum[cum.length - 1];
+    const endPt = worldPts[worldPts.length - 1];
+    let tangent = new THREE.Vector2(0, 1);
+    for (let k = worldPts.length - 2; k >= 0; k--) {
+      const diff = new THREE.Vector2().subVectors(endPt, worldPts[k]);
+      if (diff.length() > .25) { tangent = diff.normalize(); break; }
+    }
+    const posXZ = []; let ext = 0;
+    for (let s = 0; s < count; s++) {
+      const td = s * STEP_SPACING;
+      if (td <= total) {
+        let idx = 0;
+        while (idx < cum.length - 2 && cum[idx + 1] < td) idx++;
+        const seg = (cum[idx + 1] - cum[idx]) || 1, a = (td - cum[idx]) / seg;
+        posXZ.push(new THREE.Vector2(worldPts[idx].x + (worldPts[idx+1].x - worldPts[idx].x)*a, worldPts[idx].y + (worldPts[idx+1].y - worldPts[idx].y)*a));
+      } else {
+        const ex = td - total;
+        posXZ.push(new THREE.Vector2(endPt.x + tangent.x*ex, endPt.y + tangent.y*ex));
+        ext++;
+      }
+    }
+    return { posXZ, extendedCount: ext };
+  }
+
+  const liveCalibBadge = document.getElementById('live-calib-badge');
+  let liveCalibTimer = null;
+  function showLiveCalibMessage(msg) {
+    liveCalibBadge.textContent = msg;
+    liveCalibBadge.classList.add('show');
+    clearTimeout(liveCalibTimer);
+    liveCalibTimer = setTimeout(() => liveCalibBadge.classList.remove('show'), 3600);
+  }
+
+  function buildStairsFrom2DPath(rawPoints) {
+    while (stairsGroup.children.length) stairsGroup.remove(stairsGroup.children[0]);
+    stepsData = [];
+
+    const songNotes = getCurrentSong().notes, count = songNotes.length;
+    const { posXZ, extendedCount } = buildPathWithStraightExtension(rawPoints, count);
+    const startY = (count - 1) * BASE_STEP_DROP_Y;
+    const pos3D = posXZ.map((v, i) => new THREE.Vector3(v.x, startY - i * BASE_STEP_DROP_Y, v.y));
+    const defaultPitch = THREE.MathUtils.degToRad(6.2);
+
+    for (let i = 0; i < count; i++) {
+      const item = songNotes[i], meta = NOTES_META[item.note], pos = pos3D[i];
+      const fwd = new THREE.Vector3(0, 0, 1);
+      if (i < count - 1) fwd.subVectors(pos3D[i+1], pos).setY(0).normalize();
+      else if (i > 0) fwd.subVectors(pos, pos3D[i-1]).setY(0).normalize();
+      const yaw = Math.atan2(fwd.x, fwd.z);
+
+      const holder = new THREE.Group();
+      holder.position.copy(pos); holder.rotation.y = yaw;
+      const tiltGroup = new THREE.Group();
+      tiltGroup.rotation.order = 'YXZ';
+      const initPitch = (i === count - 1) ? THREE.MathUtils.degToRad(-1.8) : defaultPitch;
+      tiltGroup.rotation.x = initPitch;
+      holder.add(tiltGroup);
+
+      const barWidth = meta.barLength, barHeight = meta.barThick;
+      const barDepth = (i === count - 1) ? 2.55 : 2.02 * Math.sqrt(item.beat);
+
+      const barMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(barWidth, barHeight, barDepth),
+        new THREE.MeshStandardMaterial({ map: createWoodBarTexture(meta, item, i, ''), roughness: .38, metalness: .08 })
+      );
+      barMesh.position.y = -barHeight * .5;
+      barMesh.castShadow = true; barMesh.receiveShadow = true;
+      tiltGroup.add(barMesh);
+
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(.13, .13, meta.tubeLen, 16), brassMat);
+      tube.position.set(0, -barHeight - meta.tubeLen * .5 - .04, 0);
+      tube.castShadow = true;
+      tiltGroup.add(tube);
+
+      [-barWidth * .28, barWidth * .28].forEach(ox => {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(.14, .12, barDepth * 1.1), railMat);
+        rail.position.set(ox, -barHeight - .06, 0);
+        tiltGroup.add(rail);
+      });
+
+      stairsGroup.add(holder);
+      stepsData.push({
+        index: i, origPos: pos.clone(), origYaw: yaw, failCount: 0,
+        rollMin: -MAX_ROLL_RAD, rollMax: MAX_ROLL_RAD, pitchMin: MIN_PITCH_RAD, pitchMax: MAX_PITCH_RAD,
+        pos: pos.clone(), forwardDir: getForwardFromYaw(yaw), rightDir: getRightFromYaw(yaw), yaw,
+        pitchRad: initPitch, rollRad: 0, barWidth, barHeight, barDepth, meta, songItem: item,
+        holder, tiltGroup, barMesh, triggered: false, bounceOffset: 0
+      });
+    }
+
+    enforceVerticalClearance(1);
+    const conv = autoConvergeFullTrackInBackground(600);
+    const extHint = extendedCount > 0 ? `（後段 ${extendedCount} 階自動直線延伸）` : '';
+    showLiveCalibMessage(conv.solved
+      ? `✅ 收斂完成（${conv.roundsUsed} 輪），全曲 ${count} 階無吸力通關！${extHint}`
+      : `⚠️ 已完成 ${conv.roundsUsed} 輪優化，仍未全曲通關，請換條較平緩的路徑${extHint}`);
+  }
+
+  function applyStepTransform(st, adjustNote = '') {
+    st.holder.position.copy(st.pos);
+    st.holder.rotation.y = st.yaw;
+    st.forwardDir.copy(getForwardFromYaw(st.yaw));
+    st.rightDir.copy(getRightFromYaw(st.yaw));
+    st.tiltGroup.rotation.order = 'YXZ';
+    st.tiltGroup.rotation.x = st.pitchRad;
+    st.tiltGroup.rotation.z = st.rollRad;
+    if (adjustNote) {
+      if (st.barMesh.material.map) st.barMesh.material.map.dispose();
+      st.barMesh.material.map = createWoodBarTexture(st.meta, st.songItem, st.index, adjustNote);
+      st.barMesh.material.needsUpdate = true;
+    }
+  }
+
+  // ---------- 失敗即時修正 ----------
+  const failToast = document.getElementById('fail-toast');
+  const failTitle = document.getElementById('fail-title');
+  const failDesc = document.getElementById('fail-desc');
+  const failFixInfo = document.getElementById('fail-fix-info');
+
+  function triggerStepFailAndAdjust(failIdx, crossBallPos, failType = 'fall') {
+    if (isRecoveringFromFall) return;
+    isRecoveringFromFall = true;
+    const t = stepsData[failIdx];
+    const { reasonText, fixSummary } = applyUnifiedCorrectionForFail(failIdx, crossBallPos, failType);
+    sync2DPreviewFromSteps();
+    const title = t.songItem.lyric ? `第 ${failIdx + 1} 階「${t.meta.label} · ${t.songItem.lyric}」` : `第 ${failIdx + 1} 階「音階 ${t.meta.label}」`;
+    failTitle.textContent = (failType === 'skip' ? '⚠️ 漏音修正：' : '⚠️ 偏離修正：') + title;
+    failDesc.textContent = reasonText;
+    failFixInfo.textContent = `🔧 ${fixSummary.join('、')}，重新試彈！`;
+    failToast.classList.add('show');
+    setTimeout(() => { failToast.classList.remove('show'); isRecoveringFromFall = false; resetBall(); }, 1250);
+  }
+
+  // ---------- 木球 ----------
+  const ballMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(ballRadius, 32, 32),
+    new THREE.MeshStandardMaterial({ map: createWoodBallTexture(), roughness: .35, metalness: .05 })
+  );
+  ballMesh.castShadow = true; ballMesh.visible = false;
+  scene.add(ballMesh);
+
+  let simState = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), nextStep: 0, triggered: [], lastPassAtTargetY: null };
+  let tiltAngleDeg = 0, followCam = true, isFinished = false;
+
+  function resetBall() {
+    if (!stepsData.length) return;
+    stepsData.forEach(s => {
+      s.triggered = false; s.bounceOffset = 0;
+      s.barMesh.position.y = -s.barHeight * .5;
+      s.barMesh.material.emissive = new THREE.Color(0x000000);
+    });
+    const first = stepsData[0];
+    simState = {
+      pos: first.pos.clone().addScaledVector(first.forwardDir, -.45).add(new THREE.Vector3(0, .85, 0)),
+      vel: first.forwardDir.clone().multiplyScalar(1.75),
+      nextStep: 0, triggered: new Array(stepsData.length).fill(false), lastPassAtTargetY: null
+    };
+    physicsAccumulator = 0; isFinished = false; isSimulationActive = true;
+    ballMesh.visible = true; ballMesh.position.copy(simState.pos);
+    updateLyricsUI(-1);
+    if (followCam) {
+      camera.position.copy(simState.pos).add(new THREE.Vector3(8.5, 8.5, 9.5));
+      controls.target.copy(simState.pos);
+    }
+  }
+
+  function spawnHitParticles(pos, colorHex, count = 10) {
+    const geo = new THREE.SphereGeometry(.06, 8, 8), mat = new THREE.MeshBasicMaterial({ color: colorHex });
+    for (let i = 0; i < count; i++) {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.copy(pos); m.position.y += .05;
+      const a = Math.random() * Math.PI * 2, spd = 1.2 + Math.random() * 2.4;
+      scene.add(m);
+      particles.push({ mesh: m, vel: new THREE.Vector3(Math.cos(a)*spd, 2.2 + Math.random()*2.2, Math.sin(a)*spd), life: .55 });
+    }
+  }
+
+  function updateLyricsUI(activeIdx) {
+    const el = document.getElementById('lyrics-display'), specEl = document.getElementById('note-spec-display');
+    const song = getCurrentSong(), notes = song.notes;
+    if (activeIdx < 0) {
+      el.innerHTML = `準備演奏《${songName()}》`;
+      specEl.textContent = '音板越長越厚＝低音｜越短越薄＝高音';
+      return;
+    }
+    const start = Math.max(0, activeIdx - 3), end = Math.min(notes.length, start + 8);
+    let html = '';
+    for (let i = start; i < end; i++) {
+      const cls = i < activeIdx ? 'done' : (i === activeIdx ? 'current' : '');
+      html += `<span class="${cls}">${song.hasLyrics && notes[i].lyric ? notes[i].lyric : NOTES_META[notes[i].note].label}</span>`;
+    }
+    el.innerHTML = html;
+    const st = stepsData[activeIdx];
+    if (st) {
+      specEl.textContent = activeIdx === notes.length - 1
+        ? `🎉 演奏完成 ${notes.length}/${notes.length} 階！無吸力通關`
+        : `進度 ${activeIdx + 1}/${notes.length} ｜ 音階 ${st.meta.label} (${st.meta.name}) ｜ 音板長 ${st.barWidth.toFixed(2)}m`;
+    }
+  }
+
+  // ---------- 2D 手繪畫布 ----------
+  const drawOverlay = document.getElementById('draw-overlay');
+  const drawCanvas = document.getElementById('draw-canvas');
+  const canvasHint = document.getElementById('canvas-hint');
+  const dCtx = drawCanvas.getContext('2d');
+  let drawnPoints = [], isDrawing = false;
+
+  function renderDrawCanvas() {
+    const w = drawCanvas.width, h = drawCanvas.height;
+    dCtx.clearRect(0, 0, w, h);
+    dCtx.strokeStyle = 'rgba(255,215,160,.1)'; dCtx.lineWidth = 1;
+    [50, 98, 142].forEach(r => { dCtx.beginPath(); dCtx.arc(w/2, h/2, r, 0, Math.PI*2); dCtx.stroke(); });
+    dCtx.beginPath();
+    dCtx.moveTo(w/2, 16); dCtx.lineTo(w/2, h-16); dCtx.moveTo(16, h/2); dCtx.lineTo(w-16, h/2);
+    dCtx.stroke();
+
+    if (!drawnPoints.length) { canvasHint.classList.remove('hide'); return; }
+    canvasHint.classList.add('hide');
+
+    if (drawnPoints.length >= 2) {
+      dCtx.strokeStyle = 'rgba(251,191,36,.88)'; dCtx.lineWidth = 8; dCtx.lineCap = 'round'; dCtx.lineJoin = 'round';
+      dCtx.beginPath();
+      drawnPoints.forEach((p, i) => i ? dCtx.lineTo(p.x*w, p.y*h) : dCtx.moveTo(p.x*w, p.y*h));
+      dCtx.stroke();
+    }
+
+    const preview = adjusted2DPreview.length >= 2 ? adjusted2DPreview
+      : (drawnPoints.length >= 2
+        ? buildPathWithStraightExtension(drawnPoints, getCurrentSong().notes.length).posXZ.map(v => ({ x: v.x / SCALE_XZ + .5, y: v.y / SCALE_XZ + .5 }))
+        : []);
+    if (preview.length >= 2) {
+      dCtx.strokeStyle = '#38bdf8'; dCtx.lineWidth = 3; dCtx.setLineDash([6, 4]);
+      dCtx.beginPath();
+      preview.forEach((p, i) => i ? dCtx.lineTo(p.x*w, p.y*h) : dCtx.moveTo(p.x*w, p.y*h));
+      dCtx.stroke(); dCtx.setLineDash([]);
+    }
+
+    const a = drawnPoints[0], b = drawnPoints[drawnPoints.length - 1];
+    dCtx.fillStyle = '#22c55e'; dCtx.beginPath(); dCtx.arc(a.x*w, a.y*h, 9, 0, Math.PI*2); dCtx.fill();
+    dCtx.fillStyle = '#ef4444'; dCtx.beginPath(); dCtx.arc(b.x*w, b.y*h, 9, 0, Math.PI*2); dCtx.fill();
+  }
+
+  function getCanvasNormPos(e) {
+    const r = drawCanvas.getBoundingClientRect();
+    return {
+      x: Math.max(.05, Math.min(.95, (e.clientX - r.left) / r.width)),
+      y: Math.max(.05, Math.min(.95, (e.clientY - r.top) / r.height))
+    };
+  }
+
+  drawCanvas.addEventListener('pointerdown', e => {
+    unlockAllAudio(); isDrawing = true; adjusted2DPreview = [];
+    drawnPoints = [getCanvasNormPos(e)]; renderDrawCanvas();
+  });
+  drawCanvas.addEventListener('pointermove', e => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const pt = getCanvasNormPos(e), last = drawnPoints[drawnPoints.length - 1];
+    if (Math.hypot(pt.x - last.x, pt.y - last.y) > .01) { drawnPoints.push(pt); renderDrawCanvas(); }
+  });
+  window.addEventListener('pointerup', () => { isDrawing = false; });
+
+  document.getElementById('btn-clear-draw').addEventListener('click', () => {
+    drawnPoints = []; adjusted2DPreview = []; renderDrawCanvas();
+  });
+
+  document.getElementById('btn-generate-stairs').addEventListener('click', () => {
+    if (drawnPoints.length < 2) {
+      canvasHint.textContent = '⚠️ 請至少畫出一小段方向線（太短會自動以直線接續）';
+      canvasHint.classList.remove('hide');
+      return;
+    }
+    unlockAllAudio(); syncSongHeaderUI();
+    failToast.classList.remove('show'); isRecoveringFromFall = false;
+    setTilt(0);
+    buildStairsFrom2DPath(drawnPoints);
+    drawOverlay.classList.add('hidden');
+    resetBall();
+  });
+
+  document.getElementById('btn-reopen-draw').addEventListener('click', () => {
+    isSimulationActive = false;
+    failToast.classList.remove('show'); isRecoveringFromFall = false;
+    sync2DPreviewFromSteps(); renderDrawCanvas();
+    drawOverlay.classList.remove('hidden');
+  });
+
+  // ---------- 傾斜控制 ----------
+  const tiltSlider = document.getElementById('tilt-slider');
+  const tiltReadout = document.getElementById('tilt-readout');
+  const btnGyro = document.getElementById('btn-gyro');
+  let gyroEnabled = false;
+
+  function setTilt(deg) {
+    tiltAngleDeg = Math.max(-35, Math.min(35, deg));
+    tiltSlider.value = tiltAngleDeg;
+    tiltReadout.textContent = Math.abs(tiltAngleDeg) < 1 ? '水平平衡 (0°)'
+      : tiltAngleDeg < 0 ? `向左傾斜 (${tiltAngleDeg.toFixed(0)}°)` : `向右傾斜 (+${tiltAngleDeg.toFixed(0)}°)`;
+  }
+  tiltSlider.addEventListener('input', e => setTilt(parseFloat(e.target.value)));
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') setTilt(tiltAngleDeg - 4);
+    if (e.key === 'ArrowRight') setTilt(tiltAngleDeg + 4);
+  });
+
+  function handleDeviceOrientation(e) {
+    if (!gyroEnabled || e.gamma === null) return;
+    setTilt(e.gamma * .9);
+  }
+  btnGyro.addEventListener('click', async () => {
+    if (!gyroEnabled) {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try { if (await DeviceOrientationEvent.requestPermission() !== 'granted') return; } catch (err) { return; }
+      }
+      window.addEventListener('deviceorientation', handleDeviceOrientation);
+      gyroEnabled = true; btnGyro.classList.add('active');
+    } else {
+      window.removeEventListener('deviceorientation', handleDeviceOrientation);
+      gyroEnabled = false; btnGyro.classList.remove('active'); setTilt(0);
+    }
+  });
+
+  document.getElementById('btn-reset-ball').addEventListener('click', () => {
+    unlockAllAudio(); failToast.classList.remove('show'); isRecoveringFromFall = false; resetBall();
+  });
+  const btnFollowCam = document.getElementById('btn-follow-cam');
+  btnFollowCam.addEventListener('click', () => {
+    followCam = !followCam;
+    btnFollowCam.classList.toggle('active', followCam);
+    btnFollowCam.textContent = followCam ? '🎥 跟隨視角：開' : '🎥 自由視角';
+  });
+
+  // ---------- 主迴圈 ----------
+  const clock = new THREE.Clock();
+
+  function stepPhysics(frameDt) {
+    if (!isSimulationActive || !stepsData.length) return;
+
+    for (const st of stepsData) {
+      if (st.bounceOffset > .001) {
+        st.bounceOffset *= Math.pow(.05, frameDt);
+        st.barMesh.position.y = -st.barHeight * .5 - st.bounceOffset;
+      }
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= frameDt;
+      if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+      else { p.vel.y -= 9.8 * frameDt; p.mesh.position.addScaledVector(p.vel, frameDt); p.mesh.scale.setScalar(p.life * 1.8); }
+    }
+    if (isRecoveringFromFall) return;
+
+    physicsAccumulator += frameDt;
+    let run = 0;
+    while (physicsAccumulator >= FIXED_DT && run < 16) {
+      physicsAccumulator -= FIXED_DT; run++;
+      const outcome = advanceSinglePhysicsStep(simState, tiltAngleDeg, hitIdx => {
+        const st = stepsData[hitIdx];
+        st.triggered = true; st.bounceOffset = .16;
+        st.barMesh.material.emissive = new THREE.Color(0x553300);
+        playNoteByKey(st.songItem.note);
+        spawnHitParticles(simState.pos, 0xfbbf24, hitIdx === stepsData.length - 1 ? 24 : 10);
+        updateLyricsUI(hitIdx);
+      });
+
+      const hs = Math.hypot(simState.vel.x, simState.vel.z);
+      if (hs > .01) {
+        const axis = new THREE.Vector3(simState.vel.z, 0, -simState.vel.x).normalize();
+        ballMesh.rotateOnWorldAxis(axis, (hs * FIXED_DT) / ballRadius);
+      }
+
+      if (outcome.status === 'finished') isFinished = true;
+      else if (outcome.status === 'fall' || outcome.status === 'skip') {
+        triggerStepFailAndAdjust(outcome.failIdx, outcome.pos, outcome.status);
+        return;
+      }
+    }
+
+    ballMesh.position.copy(simState.pos);
+    if (followCam) {
+      controls.target.lerp(simState.pos.clone().add(new THREE.Vector3(0, -.7, 0)), 5 * frameDt);
+      camera.position.lerp(simState.pos.clone().add(new THREE.Vector3(8.5, 7.8, 9.5)), 3 * frameDt);
+    }
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    stepPhysics(Math.min(clock.getDelta(), .05));
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  renderDrawCanvas();
+  animate();
+})();
+</script>
+</body>
+</html>
